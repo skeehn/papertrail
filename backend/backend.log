@@ -1,0 +1,13 @@
+INFO:     Will watch for changes in these directories: ['/Users/kstephenkeehn/papertrail/backend']
+INFO:     Uvicorn running on http://0.0.0.0:8002 (Press CTRL+C to quit)
+INFO:     Started reloader process [52337] using WatchFiles
+INFO:     Started server process [52346]
+INFO:     Waiting for application startup.
+[2m2025-08-07T04:03:50.074801Z[0m [[32m[1minfo     [0m] [1mStarting PaperTrail API       [0m [[0m[1m[34mapp.main[0m][0m [36mversion[0m=[35m0.1.0[0m
+[2m2025-08-07T04:03:50.074860Z[0m [[32m[1minfo     [0m] [1mUsing mock storage for development[0m [[0m[1m[34mapp.main[0m][0m
+[2m2025-08-07T04:03:50.074895Z[0m [[32m[1minfo     [0m] [1mPaperTrail API startup complete[0m [[0m[1m[34mapp.main[0m][0m
+INFO:     Application startup complete.
+[2m2025-08-07T04:03:50.873435Z[0m [[32m[1minfo     [0m] [1mStarting paper search         [0m [[0m[1m[34mweb_search_api[0m][0m [36mmax_results[0m=[35m3[0m [36mquery[0m=[35m'transformer architecture'[0m [36msources[0m=[35mNone[0m
+[2m2025-08-07T04:03:50.873664Z[0m [[32m[1minfo     [0m] [1mStarting web search           [0m [[0m[1m[34mweb_search[0m][0m [36mmax_results[0m=[35m3[0m [36mquery[0m=[35m'transformer architecture'[0m [36msources[0m=[35mNone[0m
+[2m2025-08-07T04:03:52.033864Z[0m [[32m[1minfo     [0m] [1mWeb search completed          [0m [[0m[1m[34mweb_search[0m][0m [36mquery[0m=[35m'transformer architecture'[0m [36msources_searched[0m=[35m['arxiv', 'pubmed', 'semantic_scholar'][0m [36mtotal_results[0m=[35m3[0m
+[2m2025-08-07T04:03:52.034327Z[0m [[32m[1minfo     [0m] [1mPaper search completed        [0m [[0m[1m[34mweb_search_api[0m][0m [36mquery[0m=[35m'transformer architecture'[0m [36mresults_count[0m=[35m3[0m

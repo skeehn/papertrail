@@ -1,0 +1,537 @@
+{
+  "tasks": [
+    {
+      "id": "6aecb1e8-6633-483e-b746-234cbec69599",
+      "name": "Project Setup and Infrastructure",
+      "description": "Initialize the PaperTrail project with proper directory structure, configuration files, and development environment setup. This includes setting up the monorepo structure, installing dependencies, configuring TypeScript, ESLint, Prettier, and establishing the basic project architecture.",
+      "notes": "Focus on production-ready setup with proper development tooling and deployment preparation",
+      "status": "in_progress",
+      "dependencies": [],
+      "createdAt": "2025-08-07T00:40:49.666Z",
+      "updatedAt": "2025-08-07T00:40:51.775Z",
+      "relatedFiles": [
+        {
+          "path": "package.json",
+          "type": "CREATE",
+          "description": "Frontend package configuration with Next.js and dependencies"
+        },
+        {
+          "path": "frontend/package.json",
+          "type": "CREATE",
+          "description": "Next.js frontend configuration"
+        },
+        {
+          "path": "backend/requirements.txt",
+          "type": "CREATE",
+          "description": "Python backend dependencies"
+        },
+        {
+          "path": "docker-compose.yml",
+          "type": "CREATE",
+          "description": "Development environment containers"
+        },
+        {
+          "path": ".github/workflows/ci.yml",
+          "type": "CREATE",
+          "description": "CI/CD pipeline configuration"
+        }
+      ],
+      "implementationGuide": "1. Create monorepo structure with frontend (Next.js) and backend (FastAPI) directories\\n2. Initialize package.json for frontend with Next.js 15+, TypeScript, Tailwind CSS\\n3. Set up Python virtual environment with FastAPI, Neo4j driver, FAISS\\n4. Configure TypeScript, ESLint, Prettier for code quality\\n5. Set up Docker containers for development environment\\n6. Create basic CI/CD pipeline with GitHub Actions\\n7. Configure environment variables and secrets management",
+      "verificationCriteria": "Project structure is properly organized, all dependencies are installed, development environment runs successfully, and CI/CD pipeline is functional",
+      "analysisResult": "Build PaperTrail: A comprehensive Graph-RAG + Multi-Agent System for research synthesis that processes academic papers, builds knowledge graphs, and provides intelligent analysis through specialized AI agents. The system should handle PDF uploads, extract entities and relationships, build Neo4j knowledge graphs, and orchestrate multiple agents (Synthesizer, Critic, Connector) for deep research analysis. The goal is to reduce research synthesis time by 60% while surfacing 3x more conceptual connections between papers."
+    },
+    {
+      "id": "fb4cf7ba-c45b-4f4a-b59c-7fec042aeab6",
+      "name": "Backend API Foundation",
+      "description": "Build the core FastAPI backend with proper project structure, database connections, and basic API endpoints. This includes setting up the FastAPI application, Neo4j database connection, FAISS vector store integration, and basic health check endpoints.",
+      "notes": "Focus on production-ready API foundation with proper error handling and monitoring",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "6aecb1e8-6633-483e-b746-234cbec69599"
+        }
+      ],
+      "createdAt": "2025-08-07T00:40:49.666Z",
+      "updatedAt": "2025-08-07T00:40:49.666Z",
+      "relatedFiles": [
+        {
+          "path": "backend/app/main.py",
+          "type": "CREATE",
+          "description": "FastAPI application entry point"
+        },
+        {
+          "path": "backend/app/database/neo4j_client.py",
+          "type": "CREATE",
+          "description": "Neo4j database connection and operations"
+        },
+        {
+          "path": "backend/app/database/faiss_store.py",
+          "type": "CREATE",
+          "description": "FAISS vector store integration"
+        },
+        {
+          "path": "backend/app/models/schemas.py",
+          "type": "CREATE",
+          "description": "Pydantic models for API requests/responses"
+        },
+        {
+          "path": "backend/app/middleware/auth.py",
+          "type": "CREATE",
+          "description": "JWT authentication middleware"
+        }
+      ],
+      "implementationGuide": "1. Create FastAPI application with proper middleware and CORS configuration\\n2. Set up Neo4j database connection with connection pooling\\n3. Configure FAISS vector store for embeddings storage\\n4. Implement basic health check and status endpoints\\n5. Set up logging and error handling middleware\\n6. Create database models and schemas with Pydantic\\n7. Implement basic authentication middleware\\n8. Set up environment configuration management",
+      "verificationCriteria": "FastAPI server starts successfully, Neo4j connection is established, FAISS store is initialized, and basic endpoints respond correctly",
+      "analysisResult": "Build PaperTrail: A comprehensive Graph-RAG + Multi-Agent System for research synthesis that processes academic papers, builds knowledge graphs, and provides intelligent analysis through specialized AI agents. The system should handle PDF uploads, extract entities and relationships, build Neo4j knowledge graphs, and orchestrate multiple agents (Synthesizer, Critic, Connector) for deep research analysis. The goal is to reduce research synthesis time by 60% while surfacing 3x more conceptual connections between papers."
+    },
+    {
+      "id": "5b5fe7dc-c3f8-4306-bd32-b30981fe545d",
+      "name": "PDF Processing Pipeline",
+      "description": "Implement the PDF processing pipeline that extracts text, sections, and metadata from academic papers. This includes PDF parsing with PyMuPDF/pdfplumber, text extraction with confidence scoring, and structured data extraction for different paper sections.",
+      "notes": "Focus on robust PDF processing with fallback mechanisms for various PDF formats",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "fb4cf7ba-c45b-4f4a-b59c-7fec042aeab6"
+        }
+      ],
+      "createdAt": "2025-08-07T00:40:49.666Z",
+      "updatedAt": "2025-08-07T00:40:49.666Z",
+      "relatedFiles": [
+        {
+          "path": "backend/app/services/pdf_processor.py",
+          "type": "CREATE",
+          "description": "Main PDF processing service"
+        },
+        {
+          "path": "backend/app/services/text_extractor.py",
+          "type": "CREATE",
+          "description": "Text extraction utilities"
+        },
+        {
+          "path": "backend/app/services/section_parser.py",
+          "type": "CREATE",
+          "description": "Paper section parsing logic"
+        },
+        {
+          "path": "backend/app/services/citation_extractor.py",
+          "type": "CREATE",
+          "description": "Citation parsing and normalization"
+        },
+        {
+          "path": "backend/app/utils/ocr_handler.py",
+          "type": "CREATE",
+          "description": "OCR processing for scanned papers"
+        }
+      ],
+      "implementationGuide": "1. Implement PDF parsing with PyMuPDF for text extraction\\n2. Add pdfplumber for enhanced table and figure extraction\\n3. Create section parser for Abstract, Methods, Results, Conclusions\\n4. Implement citation extraction and parsing\\n5. Add confidence scoring for extraction quality\\n6. Handle OCR for scanned papers with Tesseract\\n7. Create metadata extraction (authors, dates, journals)\\n8. Implement batch processing for multiple PDFs\\n9. Add error handling for corrupted or unreadable PDFs",
+      "verificationCriteria": "PDF processing extracts text accurately, handles various PDF formats, extracts sections properly, and processes citations correctly",
+      "analysisResult": "Build PaperTrail: A comprehensive Graph-RAG + Multi-Agent System for research synthesis that processes academic papers, builds knowledge graphs, and provides intelligent analysis through specialized AI agents. The system should handle PDF uploads, extract entities and relationships, build Neo4j knowledge graphs, and orchestrate multiple agents (Synthesizer, Critic, Connector) for deep research analysis. The goal is to reduce research synthesis time by 60% while surfacing 3x more conceptual connections between papers."
+    },
+    {
+      "id": "337b0543-5ab1-45b7-99ff-1ad6d093f979",
+      "name": "Entity and Relationship Extraction",
+      "description": "Build the AI-powered entity and relationship extraction system using OpenAI function calling. This includes Named Entity Recognition for concepts, methods, datasets, and relationship extraction for claims, dependencies, and contradictions between papers.",
+      "notes": "Focus on accurate extraction with proper error handling and confidence scoring",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "5b5fe7dc-c3f8-4306-bd32-b30981fe545d"
+        }
+      ],
+      "createdAt": "2025-08-07T00:40:49.666Z",
+      "updatedAt": "2025-08-07T00:40:49.666Z",
+      "relatedFiles": [
+        {
+          "path": "backend/app/services/entity_extractor.py",
+          "type": "CREATE",
+          "description": "Entity extraction using OpenAI function calling"
+        },
+        {
+          "path": "backend/app/services/relationship_extractor.py",
+          "type": "CREATE",
+          "description": "Relationship extraction between entities"
+        },
+        {
+          "path": "backend/app/services/entity_linker.py",
+          "type": "CREATE",
+          "description": "Entity linking and normalization"
+        },
+        {
+          "path": "backend/app/models/entities.py",
+          "type": "CREATE",
+          "description": "Entity and relationship data models"
+        },
+        {
+          "path": "backend/app/utils/confidence_scorer.py",
+          "type": "CREATE",
+          "description": "Confidence scoring for extracted data"
+        }
+      ],
+      "implementationGuide": "1. Implement OpenAI function calling for structured entity extraction\\n2. Create entity types: concepts, methods, datasets, claims, assumptions\\n3. Implement relationship extraction: supports, contradicts, cites, mentions\\n4. Add confidence scoring for extracted entities and relationships\\n5. Create entity normalization and deduplication\\n6. Implement batch processing for multiple papers\\n7. Add fallback mechanisms for API failures\\n8. Create entity linking across papers\\n9. Implement relationship strength scoring",
+      "verificationCriteria": "Entity extraction achieves 85%+ precision, relationships are accurately identified, and confidence scoring works properly",
+      "analysisResult": "Build PaperTrail: A comprehensive Graph-RAG + Multi-Agent System for research synthesis that processes academic papers, builds knowledge graphs, and provides intelligent analysis through specialized AI agents. The system should handle PDF uploads, extract entities and relationships, build Neo4j knowledge graphs, and orchestrate multiple agents (Synthesizer, Critic, Connector) for deep research analysis. The goal is to reduce research synthesis time by 60% while surfacing 3x more conceptual connections between papers."
+    },
+    {
+      "id": "a7ab2f73-4a2c-4ae3-816a-e044232897b0",
+      "name": "Knowledge Graph Construction",
+      "description": "Build the Neo4j knowledge graph with proper schema design and efficient querying. This includes creating the graph schema, implementing graph construction algorithms, adding vector embeddings, and optimizing for query performance.",
+      "notes": "Focus on efficient graph operations and query performance for large knowledge bases",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "337b0543-5ab1-45b7-99ff-1ad6d093f979"
+        }
+      ],
+      "createdAt": "2025-08-07T00:40:49.666Z",
+      "updatedAt": "2025-08-07T00:40:49.666Z",
+      "relatedFiles": [
+        {
+          "path": "backend/app/services/graph_builder.py",
+          "type": "CREATE",
+          "description": "Knowledge graph construction service"
+        },
+        {
+          "path": "backend/app/services/graph_queries.py",
+          "type": "CREATE",
+          "description": "Optimized graph query operations"
+        },
+        {
+          "path": "backend/app/services/embedding_service.py",
+          "type": "CREATE",
+          "description": "Vector embedding generation and storage"
+        },
+        {
+          "path": "backend/app/models/graph_schema.py",
+          "type": "CREATE",
+          "description": "Neo4j graph schema definitions"
+        },
+        {
+          "path": "backend/app/services/graph_analytics.py",
+          "type": "CREATE",
+          "description": "Graph analytics and community detection"
+        }
+      ],
+      "implementationGuide": "1. Design Neo4j schema for papers, entities, relationships\\n2. Implement graph construction from extracted entities/relationships\\n3. Add vector embeddings for semantic similarity search\\n4. Create graph indexes for query optimization\\n5. Implement graph traversal algorithms\\n6. Add community detection for concept clustering\\n7. Create graph analytics and metrics\\n8. Implement graph pruning and maintenance\\n9. Add graph visualization data preparation",
+      "verificationCriteria": "Knowledge graph is properly constructed, queries perform efficiently, and vector search works correctly",
+      "analysisResult": "Build PaperTrail: A comprehensive Graph-RAG + Multi-Agent System for research synthesis that processes academic papers, builds knowledge graphs, and provides intelligent analysis through specialized AI agents. The system should handle PDF uploads, extract entities and relationships, build Neo4j knowledge graphs, and orchestrate multiple agents (Synthesizer, Critic, Connector) for deep research analysis. The goal is to reduce research synthesis time by 60% while surfacing 3x more conceptual connections between papers."
+    },
+    {
+      "id": "e4fc11e7-6e66-4e21-b169-6fd034c3cae4",
+      "name": "Multi-Agent System Architecture",
+      "description": "Design and implement the LangGraph-based multi-agent system with specialized agents (Synthesizer, Critic, Connector). This includes agent definitions, coordination mechanisms, shared memory, and event-driven communication.",
+      "notes": "Focus on robust agent coordination with proper error handling and performance monitoring",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "a7ab2f73-4a2c-4ae3-816a-e044232897b0"
+        }
+      ],
+      "createdAt": "2025-08-07T00:40:49.666Z",
+      "updatedAt": "2025-08-07T00:40:49.666Z",
+      "relatedFiles": [
+        {
+          "path": "backend/app/agents/base_agent.py",
+          "type": "CREATE",
+          "description": "Base agent class with common functionality"
+        },
+        {
+          "path": "backend/app/agents/synthesizer_agent.py",
+          "type": "CREATE",
+          "description": "Synthesizer agent for paper analysis"
+        },
+        {
+          "path": "backend/app/agents/critic_agent.py",
+          "type": "CREATE",
+          "description": "Critic agent for critical analysis"
+        },
+        {
+          "path": "backend/app/agents/connector_agent.py",
+          "type": "CREATE",
+          "description": "Connector agent for finding relationships"
+        },
+        {
+          "path": "backend/app/services/agent_orchestrator.py",
+          "type": "CREATE",
+          "description": "LangGraph agent orchestration service"
+        }
+      ],
+      "implementationGuide": "1. Set up LangGraph framework for multi-agent orchestration\\n2. Implement Synthesizer Agent for paper summarization and claim extraction\\n3. Create Critic Agent for assumption detection and contradiction identification\\n4. Build Connector Agent for finding related work and argument relationships\\n5. Implement shared memory and context management\\n6. Add event-driven communication between agents\\n7. Create agent coordination and workflow management\\n8. Implement agent performance monitoring\\n9. Add fallback mechanisms for agent failures",
+      "verificationCriteria": "Multi-agent system coordinates properly, agents perform their specialized tasks, and communication works seamlessly",
+      "analysisResult": "Build PaperTrail: A comprehensive Graph-RAG + Multi-Agent System for research synthesis that processes academic papers, builds knowledge graphs, and provides intelligent analysis through specialized AI agents. The system should handle PDF uploads, extract entities and relationships, build Neo4j knowledge graphs, and orchestrate multiple agents (Synthesizer, Critic, Connector) for deep research analysis. The goal is to reduce research synthesis time by 60% while surfacing 3x more conceptual connections between papers."
+    },
+    {
+      "id": "9a83e356-a002-4059-a48d-a840559f59b5",
+      "name": "Frontend Foundation and UI Components",
+      "description": "Build the Next.js 15+ frontend with TypeScript and Tailwind CSS. This includes setting up the application structure, creating reusable UI components, implementing responsive design, and establishing the basic user interface framework.",
+      "notes": "Focus on modern, accessible UI with excellent user experience",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "6aecb1e8-6633-483e-b746-234cbec69599"
+        }
+      ],
+      "createdAt": "2025-08-07T00:40:49.666Z",
+      "updatedAt": "2025-08-07T00:40:49.666Z",
+      "relatedFiles": [
+        {
+          "path": "frontend/src/app/layout.tsx",
+          "type": "CREATE",
+          "description": "Root layout component"
+        },
+        {
+          "path": "frontend/src/components/ui/Button.tsx",
+          "type": "CREATE",
+          "description": "Reusable button component"
+        },
+        {
+          "path": "frontend/src/components/ui/Card.tsx",
+          "type": "CREATE",
+          "description": "Card component for content display"
+        },
+        {
+          "path": "frontend/src/components/upload/FileUpload.tsx",
+          "type": "CREATE",
+          "description": "PDF file upload component"
+        },
+        {
+          "path": "frontend/src/components/chat/ChatInterface.tsx",
+          "type": "CREATE",
+          "description": "Chat interface for agent interactions"
+        }
+      ],
+      "implementationGuide": "1. Set up Next.js 15+ with TypeScript and Tailwind CSS\\n2. Create responsive layout components and navigation\\n3. Implement file upload interface for PDFs\\n4. Build chat interface for agent interactions\\n5. Create loading states and error handling components\\n6. Implement responsive design for mobile and desktop\\n7. Add accessibility features (WCAG 2.1 AA compliance)\\n8. Create reusable UI component library\\n9. Set up state management with Zustand",
+      "verificationCriteria": "Frontend builds successfully, UI components are responsive and accessible, and basic user interactions work properly",
+      "analysisResult": "Build PaperTrail: A comprehensive Graph-RAG + Multi-Agent System for research synthesis that processes academic papers, builds knowledge graphs, and provides intelligent analysis through specialized AI agents. The system should handle PDF uploads, extract entities and relationships, build Neo4j knowledge graphs, and orchestrate multiple agents (Synthesizer, Critic, Connector) for deep research analysis. The goal is to reduce research synthesis time by 60% while surfacing 3x more conceptual connections between papers."
+    },
+    {
+      "id": "950c57b9-7e82-4c9e-a58c-5fd8dc7e77af",
+      "name": "Graph Visualization System",
+      "description": "Implement the D3.js-based graph visualization system for interactive knowledge graph exploration. This includes graph rendering, interactive features, filtering capabilities, and export functionality.",
+      "notes": "Focus on performant graph visualization with smooth interactions and clear visual hierarchy",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "9a83e356-a002-4059-a48d-a840559f59b5"
+        }
+      ],
+      "createdAt": "2025-08-07T00:40:49.666Z",
+      "updatedAt": "2025-08-07T00:40:49.666Z",
+      "relatedFiles": [
+        {
+          "path": "frontend/src/components/graph/GraphVisualization.tsx",
+          "type": "CREATE",
+          "description": "Main graph visualization component"
+        },
+        {
+          "path": "frontend/src/components/graph/GraphControls.tsx",
+          "type": "CREATE",
+          "description": "Graph control panel and filters"
+        },
+        {
+          "path": "frontend/src/components/graph/GraphNode.tsx",
+          "type": "CREATE",
+          "description": "Individual graph node component"
+        },
+        {
+          "path": "frontend/src/components/graph/GraphEdge.tsx",
+          "type": "CREATE",
+          "description": "Graph edge/relationship component"
+        },
+        {
+          "path": "frontend/src/utils/graphUtils.ts",
+          "type": "CREATE",
+          "description": "Graph utility functions and helpers"
+        }
+      ],
+      "implementationGuide": "1. Implement D3.js graph visualization with force-directed layout\\n2. Add interactive features: zoom, pan, node selection\\n3. Create filtering by paper, concept type, relationship strength\\n4. Implement node clustering and community detection visualization\\n5. Add search and highlight functionality\\n6. Create export capabilities for graph images and data\\n7. Implement responsive graph sizing\\n8. Add graph analytics and metrics display\\n9. Create graph navigation and breadcrumb system",
+      "verificationCriteria": "Graph visualization renders correctly, interactions are smooth, filtering works properly, and export functionality is functional",
+      "analysisResult": "Build PaperTrail: A comprehensive Graph-RAG + Multi-Agent System for research synthesis that processes academic papers, builds knowledge graphs, and provides intelligent analysis through specialized AI agents. The system should handle PDF uploads, extract entities and relationships, build Neo4j knowledge graphs, and orchestrate multiple agents (Synthesizer, Critic, Connector) for deep research analysis. The goal is to reduce research synthesis time by 60% while surfacing 3x more conceptual connections between papers."
+    },
+    {
+      "id": "d73ec680-7f51-4a56-9e08-18503fe7433c",
+      "name": "Real-time Communication and WebSocket Integration",
+      "description": "Implement real-time communication between frontend and backend using WebSockets. This includes live agent responses, progress updates for PDF processing, and real-time graph updates.",
+      "notes": "Focus on reliable real-time communication with proper error handling and user feedback",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "e4fc11e7-6e66-4e21-b169-6fd034c3cae4"
+        },
+        {
+          "taskId": "9a83e356-a002-4059-a48d-a840559f59b5"
+        }
+      ],
+      "createdAt": "2025-08-07T00:40:49.666Z",
+      "updatedAt": "2025-08-07T00:40:49.666Z",
+      "relatedFiles": [
+        {
+          "path": "backend/app/websocket/websocket_manager.py",
+          "type": "CREATE",
+          "description": "WebSocket connection management"
+        },
+        {
+          "path": "backend/app/websocket/message_handler.py",
+          "type": "CREATE",
+          "description": "WebSocket message handling and routing"
+        },
+        {
+          "path": "frontend/src/hooks/useWebSocket.ts",
+          "type": "CREATE",
+          "description": "WebSocket hook for frontend"
+        },
+        {
+          "path": "frontend/src/components/realtime/ProgressTracker.tsx",
+          "type": "CREATE",
+          "description": "Real-time progress tracking component"
+        },
+        {
+          "path": "frontend/src/components/realtime/LiveUpdates.tsx",
+          "type": "CREATE",
+          "description": "Live updates and notifications component"
+        }
+      ],
+      "implementationGuide": "1. Set up WebSocket server with FastAPI and websockets\\n2. Implement real-time agent response streaming\\n3. Add progress tracking for PDF processing\\n4. Create live graph updates and notifications\\n5. Implement connection management and reconnection logic\\n6. Add message queuing and delivery guarantees\\n7. Create real-time user presence and collaboration features\\n8. Implement WebSocket authentication and security\\n9. Add error handling and fallback mechanisms",
+      "verificationCriteria": "WebSocket connections are stable, real-time updates work properly, and error handling is robust",
+      "analysisResult": "Build PaperTrail: A comprehensive Graph-RAG + Multi-Agent System for research synthesis that processes academic papers, builds knowledge graphs, and provides intelligent analysis through specialized AI agents. The system should handle PDF uploads, extract entities and relationships, build Neo4j knowledge graphs, and orchestrate multiple agents (Synthesizer, Critic, Connector) for deep research analysis. The goal is to reduce research synthesis time by 60% while surfacing 3x more conceptual connections between papers."
+    },
+    {
+      "id": "e5d90451-6754-486b-9298-ac12dcb981a7",
+      "name": "API Integration and Data Flow",
+      "description": "Connect the frontend and backend systems with proper API integration, data flow management, and state synchronization. This includes API client implementation, data fetching, caching, and error handling.",
+      "notes": "Focus on robust API integration with proper error handling and user experience",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "fb4cf7ba-c45b-4f4a-b59c-7fec042aeab6"
+        },
+        {
+          "taskId": "9a83e356-a002-4059-a48d-a840559f59b5"
+        }
+      ],
+      "createdAt": "2025-08-07T00:40:49.666Z",
+      "updatedAt": "2025-08-07T00:40:49.666Z",
+      "relatedFiles": [
+        {
+          "path": "frontend/src/lib/api.ts",
+          "type": "CREATE",
+          "description": "API client and request handling"
+        },
+        {
+          "path": "frontend/src/lib/queryClient.ts",
+          "type": "CREATE",
+          "description": "React Query client configuration"
+        },
+        {
+          "path": "frontend/src/stores/useAppStore.ts",
+          "type": "CREATE",
+          "description": "Global state management with Zustand"
+        },
+        {
+          "path": "frontend/src/hooks/useApi.ts",
+          "type": "CREATE",
+          "description": "Custom API hooks for data fetching"
+        },
+        {
+          "path": "frontend/src/components/error/ErrorBoundary.tsx",
+          "type": "CREATE",
+          "description": "Error boundary component for error handling"
+        }
+      ],
+      "implementationGuide": "1. Create API client with proper error handling and retry logic\\n2. Implement data fetching with React Query/TanStack Query\\n3. Add caching strategies for frequently accessed data\\n4. Create state management with Zustand for global state\\n5. Implement optimistic updates for better UX\\n6. Add offline support and data synchronization\\n7. Create API response type definitions\\n8. Implement proper loading states and error boundaries\\n9. Add request/response logging and monitoring",
+      "verificationCriteria": "API integration works properly, data flows correctly between frontend and backend, and error handling is comprehensive",
+      "analysisResult": "Build PaperTrail: A comprehensive Graph-RAG + Multi-Agent System for research synthesis that processes academic papers, builds knowledge graphs, and provides intelligent analysis through specialized AI agents. The system should handle PDF uploads, extract entities and relationships, build Neo4j knowledge graphs, and orchestrate multiple agents (Synthesizer, Critic, Connector) for deep research analysis. The goal is to reduce research synthesis time by 60% while surfacing 3x more conceptual connections between papers."
+    },
+    {
+      "id": "e07c6930-6da1-4e33-819a-b63f9632f801",
+      "name": "Testing Suite and Quality Assurance",
+      "description": "Implement comprehensive testing across the entire system including unit tests, integration tests, end-to-end tests, and performance testing. This includes test setup, test data management, and CI/CD integration.",
+      "notes": "Focus on comprehensive testing with high coverage and automated quality assurance",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "e5d90451-6754-486b-9298-ac12dcb981a7"
+        },
+        {
+          "taskId": "950c57b9-7e82-4c9e-a58c-5fd8dc7e77af"
+        }
+      ],
+      "createdAt": "2025-08-07T00:40:49.666Z",
+      "updatedAt": "2025-08-07T00:40:49.666Z",
+      "relatedFiles": [
+        {
+          "path": "frontend/src/__tests__/components/GraphVisualization.test.tsx",
+          "type": "CREATE",
+          "description": "Graph visualization component tests"
+        },
+        {
+          "path": "backend/tests/test_pdf_processor.py",
+          "type": "CREATE",
+          "description": "PDF processing service tests"
+        },
+        {
+          "path": "backend/tests/test_entity_extractor.py",
+          "type": "CREATE",
+          "description": "Entity extraction service tests"
+        },
+        {
+          "path": "e2e/tests/upload_and_analyze.spec.ts",
+          "type": "CREATE",
+          "description": "End-to-end test for paper upload and analysis"
+        },
+        {
+          "path": "playwright.config.ts",
+          "type": "CREATE",
+          "description": "Playwright E2E testing configuration"
+        }
+      ],
+      "implementationGuide": "1. Set up testing frameworks: Jest, React Testing Library, Playwright\\n2. Create unit tests for all core components and services\\n3. Implement integration tests for API endpoints and database operations\\n4. Add end-to-end tests for critical user workflows\\n5. Create performance tests for PDF processing and graph operations\\n6. Set up test data management and fixtures\\n7. Implement automated testing in CI/CD pipeline\\n8. Add code coverage reporting and quality gates\\n9. Create visual regression tests for UI components",
+      "verificationCriteria": "All tests pass, code coverage meets targets, and automated testing is integrated into CI/CD pipeline",
+      "analysisResult": "Build PaperTrail: A comprehensive Graph-RAG + Multi-Agent System for research synthesis that processes academic papers, builds knowledge graphs, and provides intelligent analysis through specialized AI agents. The system should handle PDF uploads, extract entities and relationships, build Neo4j knowledge graphs, and orchestrate multiple agents (Synthesizer, Critic, Connector) for deep research analysis. The goal is to reduce research synthesis time by 60% while surfacing 3x more conceptual connections between papers."
+    },
+    {
+      "id": "5abb86a6-85e3-4e87-965e-e4868bb002d6",
+      "name": "Production Deployment and Monitoring",
+      "description": "Set up production deployment with proper monitoring, logging, and observability. This includes containerization, deployment automation, monitoring dashboards, and performance optimization.",
+      "notes": "Focus on production-ready deployment with comprehensive monitoring and security",
+      "status": "pending",
+      "dependencies": [
+        {
+          "taskId": "e07c6930-6da1-4e33-819a-b63f9632f801"
+        }
+      ],
+      "createdAt": "2025-08-07T00:40:49.666Z",
+      "updatedAt": "2025-08-07T00:40:49.666Z",
+      "relatedFiles": [
+        {
+          "path": "docker/Dockerfile.frontend",
+          "type": "CREATE",
+          "description": "Frontend production Dockerfile"
+        },
+        {
+          "path": "docker/Dockerfile.backend",
+          "type": "CREATE",
+          "description": "Backend production Dockerfile"
+        },
+        {
+          "path": "k8s/deployment.yaml",
+          "type": "CREATE",
+          "description": "Kubernetes deployment configuration"
+        },
+        {
+          "path": "monitoring/prometheus.yml",
+          "type": "CREATE",
+          "description": "Prometheus monitoring configuration"
+        },
+        {
+          "path": "monitoring/grafana/dashboards/papertrail.json",
+          "type": "CREATE",
+          "description": "Grafana dashboard configuration"
+        }
+      ],
+      "implementationGuide": "1. Create production Docker containers with multi-stage builds\\n2. Set up Kubernetes deployment manifests\\n3. Implement monitoring with Prometheus and Grafana\\n4. Add structured logging with correlation IDs\\n5. Create health checks and readiness probes\\n6. Set up alerting and incident response procedures\\n7. Implement performance monitoring and optimization\\n8. Add security scanning and vulnerability management\\n9. Create backup and disaster recovery procedures",
+      "verificationCriteria": "Production deployment is successful, monitoring is functional, and system performance meets targets",
+      "analysisResult": "Build PaperTrail: A comprehensive Graph-RAG + Multi-Agent System for research synthesis that processes academic papers, builds knowledge graphs, and provides intelligent analysis through specialized AI agents. The system should handle PDF uploads, extract entities and relationships, build Neo4j knowledge graphs, and orchestrate multiple agents (Synthesizer, Critic, Connector) for deep research analysis. The goal is to reduce research synthesis time by 60% while surfacing 3x more conceptual connections between papers."
+    }
+  ]
+}

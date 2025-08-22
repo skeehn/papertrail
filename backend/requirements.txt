@@ -1,0 +1,55 @@
+# FastAPI and ASGI
+fastapi>=0.100.0
+uvicorn[standard]>=0.20.0
+websockets>=11.0
+
+# Database and Vector Store
+neo4j>=5.0.0
+faiss-cpu>=1.7.0
+numpy>=1.24.0
+pandas>=2.0.0
+
+# PDF Processing
+PyMuPDF>=1.20.0
+pdfplumber>=0.9.0
+pytesseract>=0.3.8
+Pillow>=9.0.0
+
+# AI and NLP
+openai>=1.10.0
+langchain>=0.1.0
+langchain-openai>=0.0.5
+langgraph>=0.1.0
+transformers>=4.30.0
+torch>=2.0.0
+sentence-transformers>=2.2.0
+
+# Data Processing
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+python-multipart>=0.0.6
+aiofiles>=22.0.0
+
+# Authentication and Security
+python-jose[cryptography]>=3.0.0
+passlib[bcrypt]>=1.7.0
+
+# Monitoring and Logging
+structlog>=22.0.0
+prometheus-client>=0.15.0
+
+# Testing
+pytest>=7.0.0
+pytest-asyncio>=0.20.0
+httpx>=0.24.0
+
+# Development
+black>=22.0.0
+isort>=5.0.0
+flake8>=5.0.0
+mypy>=1.0.0
+
+# Utilities
+python-dotenv>=1.0.0
+requests>=2.28.0
+tenacity>=8.0.0 

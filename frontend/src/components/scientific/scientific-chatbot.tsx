@@ -137,9 +137,7 @@ function ScientificChatbot() {
   const { saveConversation, loadConversation, clearConversation } = useConversationPersistence()
 
   const { messages, sendMessage, status, error, setMessages } = useChat({
-    transport: new DefaultChatTransport({
-      api: "/api/scientific/intelligent-chat",
-    }),
+    api: "/api/scientific/intelligent-chat",
   })
   
   // Load persisted conversation on mount

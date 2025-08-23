@@ -10,13 +10,43 @@ from typing import Any, Dict, List, Optional
 
 
 class MockPaperStore:
-    """In-memory paper storage for development"""
+    """In-memory paper storage for development with JSON persistence"""
 
     def __init__(self):
+        self.data_file = "papertrail_data.json"
         self.papers: Dict[str, Dict[str, Any]] = {}
         self.entities: Dict[str, List[Dict[str, Any]]] = {}
         self.relationships: Dict[str, List[Dict[str, Any]]] = {}
         self.memories: List[Dict[str, Any]] = []  # Simple list for conversation memories
+        self._load_data()
+
+    def _load_data(self):
+        """Load data from JSON file if it exists"""
+        try:
+            if os.path.exists(self.data_file):
+                with open(self.data_file, 'r') as f:
+                    data = json.load(f)
+                    self.papers = data.get('papers', {})
+                    self.entities = data.get('entities', {})
+                    self.relationships = data.get('relationships', {})
+                    self.memories = data.get('memories', [])
+                    print(f"Loaded {len(self.memories)} memories from {self.data_file}")
+        except Exception as e:
+            print(f"Failed to load data: {e}")
+
+    def _save_data(self):
+        """Save data to JSON file"""
+        try:
+            data = {
+                'papers': self.papers,
+                'entities': self.entities,
+                'relationships': self.relationships,
+                'memories': self.memories
+            }
+            with open(self.data_file, 'w') as f:
+                json.dump(data, f, indent=2, default=str)
+        except Exception as e:
+            print(f"Failed to save data: {e}")
 
     def store_paper(self, paper_data: Dict[str, Any]) -> str:
         """Store a paper and return its ID"""
@@ -173,6 +203,7 @@ class MockPaperStore:
         }
         
         self.memories.append(memory)
+        self._save_data()  # Persist to JSON
         return memory_id
     
     def get_memories(self, limit: int = 100, skip: int = 0) -> List[Dict[str, Any]]:

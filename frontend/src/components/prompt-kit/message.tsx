@@ -49,7 +49,7 @@ export type MessageContentProps = {
   markdown?: boolean
   className?: string
   id?: string
-  components?: Record<string, React.ComponentType<unknown>>
+  components?: any
 } & React.HTMLProps<HTMLDivElement>
 
 const MessageContent = ({

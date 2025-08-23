@@ -182,8 +182,7 @@ function PromptInputAction({
         {children}
       </TooltipTrigger>
       <TooltipContent side={side} className={className}>
-        {/* @ts-expect-error - React 19 compatibility issue */}
-        {tooltip}
+        {tooltip as any}
       </TooltipContent>
     </Tooltip>
   )

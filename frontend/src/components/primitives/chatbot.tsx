@@ -28,7 +28,7 @@ import {
   ThumbsDown,
   ThumbsUp,
 } from "lucide-react"
-import React, { memo, useState } from "react"
+import React, { useState } from "react"
 
 type MessageComponentProps = {
   message: UIMessage

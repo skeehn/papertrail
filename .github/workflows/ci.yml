@@ -48,7 +48,7 @@ jobs:
       - name: Build frontend
         run: |
           cd frontend
-          echo "Skipping build due to React 19 compatibility issues - will be fixed in next iteration"
+          npm run build
 
   # Backend Testing and Linting
   backend:

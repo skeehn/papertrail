@@ -64,7 +64,7 @@ function PromptInput({
   children,
 }: PromptInputProps) {
   const [internalValue, setInternalValue] = useState(value || "")
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
 
   const handleChange = (newValue: string) => {
     setInternalValue(newValue)
@@ -131,7 +131,7 @@ function PromptInputTextarea({
 
   return (
     <Textarea
-      ref={textareaRef}
+      ref={textareaRef as any}
       value={value}
       onChange={(e) => setValue(e.target.value)}
       onKeyDown={handleKeyDown}

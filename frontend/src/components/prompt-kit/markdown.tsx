@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils"
 import { marked } from "marked"
-import { memo, useId, useMemo } from "react"
+import { useId, useMemo } from "react"
 import ReactMarkdown, { Components } from "react-markdown"
 import remarkBreaks from "remark-breaks"
 import remarkGfm from "remark-gfm"
@@ -57,8 +57,7 @@ const INITIAL_COMPONENTS: Partial<Components> = {
   },
 }
 
-const MemoizedMarkdownBlock = memo(
-  function MarkdownBlock({
+const MemoizedMarkdownBlock = function MarkdownBlock({
     content,
     components = INITIAL_COMPONENTS,
   }: {
@@ -73,13 +72,7 @@ const MemoizedMarkdownBlock = memo(
         {content}
       </ReactMarkdown>
     )
-  },
-  function propsAreEqual(prevProps, nextProps) {
-    return prevProps.content === nextProps.content
   }
-)
-
-MemoizedMarkdownBlock.displayName = "MemoizedMarkdownBlock"
 
 function MarkdownComponent({
   children,
@@ -104,7 +97,6 @@ function MarkdownComponent({
   )
 }
 
-const Markdown = memo(MarkdownComponent)
-Markdown.displayName = "Markdown"
+const Markdown = MarkdownComponent
 
 export { Markdown }

@@ -28,15 +28,14 @@ import {
   ThumbsDown,
   ThumbsUp,
 } from "lucide-react"
-import { memo, useState } from "react"
+import React, { memo, useState } from "react"
 
 type MessageComponentProps = {
   message: UIMessage
   isLastMessage: boolean
 }
 
-export const MessageComponent = memo(
-  ({ message, isLastMessage }: MessageComponentProps) => {
+export const MessageComponent = ({ message, isLastMessage }: MessageComponentProps) => {
     const isAssistant = message.role === "assistant"
 
     return (
@@ -102,11 +101,8 @@ export const MessageComponent = memo(
       </Message>
     )
   }
-)
 
-MessageComponent.displayName = "MessageComponent"
-
-const LoadingMessage = memo(() => (
+const LoadingMessage = () => (
   <Message className="mx-auto flex w-full max-w-3xl flex-col items-start gap-2 px-0 md:px-10">
     <div className="group flex w-full flex-col gap-0">
       <div className="text-foreground prose w-full min-w-0 flex-1 rounded-lg bg-transparent p-0">
@@ -114,11 +110,9 @@ const LoadingMessage = memo(() => (
       </div>
     </div>
   </Message>
-))
+)
 
-LoadingMessage.displayName = "LoadingMessage"
-
-const ErrorMessage = memo(({ error }: { error: Error }) => (
+const ErrorMessage = ({ error }: { error: Error }) => (
   <Message className="not-prose mx-auto flex w-full max-w-3xl flex-col items-start gap-2 px-0 md:px-10">
     <div className="group flex w-full flex-col items-start gap-0">
       <div className="text-primary flex min-w-0 flex-1 flex-row items-center gap-2 rounded-lg border-2 border-red-300 bg-red-300/20 px-2 py-1">
@@ -127,9 +121,7 @@ const ErrorMessage = memo(({ error }: { error: Error }) => (
       </div>
     </div>
   </Message>
-))
-
-ErrorMessage.displayName = "ErrorMessage"
+)
 
 function ConversationPromptInput() {
   const [input, setInput] = useState("")

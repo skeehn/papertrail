@@ -1,7 +1,13 @@
-import ConversationPromptInput from "@/components/primitives/chatbot";
+"use client"
 
-export const dynamic = 'force-dynamic';
+import React from "react";
+import ScientificChatbot from "@/components/scientific/scientific-chatbot";
+import MainLayout from "@/components/layout/main-layout";
 
 export default function Home() {
-  return <ConversationPromptInput />;
+  return (
+    <MainLayout 
+      chatComponent={<ScientificChatbot />}
+    />
+  );
 }

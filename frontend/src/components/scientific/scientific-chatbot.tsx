@@ -28,9 +28,13 @@ import {
   ThumbsDown,
   ThumbsUp,
   RotateCcw,
+  Upload,
+  FileText,
+  Brain,
 } from "lucide-react"
 import React, { useState, useEffect } from "react"
 import { useConversationPersistence } from "@/hooks/use-memory-persistence"
+import PaperUpload from "./paper-upload"
 
 type MessageComponentProps = {
   message: UIMessage
@@ -125,15 +129,16 @@ const ErrorMessage = ({ error }: { error: Error }) => (
   </Message>
 )
 
-function ConversationPromptInput() {
+function ScientificChatbot() {
   const [input, setInput] = useState("")
   const [lastSavedMessageCount, setLastSavedMessageCount] = useState(0)
   const [persistenceEnabled, setPersistenceEnabled] = useState(false)
+  const [showUpload, setShowUpload] = useState(false)
   const { saveConversation, loadConversation, clearConversation } = useConversationPersistence()
 
   const { messages, sendMessage, status, error, setMessages } = useChat({
     transport: new DefaultChatTransport({
-      api: "/api/primitives/chatbot",
+      api: "/api/scientific/intelligent-chat",
     }),
   })
   
@@ -146,28 +151,27 @@ function ConversationPromptInput() {
     }
     // Enable persistence after initial load
     setTimeout(() => setPersistenceEnabled(true), 1000)
-  }, []) // Empty dependency array to run once
+  }, [])
 
-  // Save conversation when messages change, but only for new messages
+  // Save conversation when messages change
   useEffect(() => {
-    if (!persistenceEnabled) return // Skip until persistence is enabled
+    if (!persistenceEnabled) return
     
     if (messages.length > 0 && messages.length !== lastSavedMessageCount) {
       setLastSavedMessageCount(messages.length)
       
-      // Debounced save with error handling
       const timeoutId = setTimeout(async () => {
         try {
           await saveConversation(messages)
-          console.log('💾 Conversation saved:', messages.length, 'messages')
+          console.log('💾 Scientific conversation saved:', messages.length, 'messages')
         } catch (error) {
           console.error('Failed to save conversation:', error)
         }
-      }, 1000) // 1 second debounce
+      }, 1000)
       
       return () => clearTimeout(timeoutId)
     }
-  }, [messages.length, persistenceEnabled]) // Only depend on message count, not content
+  }, [messages.length, persistenceEnabled, saveConversation])
 
   const handleSubmit = () => {
     if (!input.trim()) return
@@ -181,10 +185,76 @@ function ConversationPromptInput() {
     setMessages([])
   }
 
+  const handlePaperUploaded = (paperId: string, metadata: any) => {
+    console.log('Paper uploaded:', paperId, metadata)
+    setShowUpload(false)
+    // Send a message to the chat about the uploaded paper
+    sendMessage({ 
+      text: `I just uploaded a paper: "${metadata.title}" by ${metadata.authors?.join(', ')}. Can you analyze it for me?` 
+    })
+  }
+
+  if (showUpload) {
+    return (
+      <div className="flex h-screen flex-col overflow-hidden">
+        <div className="border-b px-4 py-3 bg-white">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <FileText className="w-5 h-5 text-blue-500" />
+              <h2 className="font-semibold">Upload Research Papers</h2>
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => setShowUpload(false)}
+              className="flex items-center gap-2"
+            >
+              <Brain className="w-4 h-4" />
+              Back to Chat
+            </Button>
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto">
+          <div className="max-w-4xl mx-auto p-6">
+            <PaperUpload onPaperUploaded={handlePaperUploaded} />
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="flex h-screen flex-col overflow-hidden">
       <ChatContainerRoot className="relative flex-1 space-y-0 overflow-y-auto">
         <ChatContainerContent className="space-y-12 px-4 py-12">
+          {/* Welcome message for empty chat */}
+          {messages.length === 0 && (
+            <Message className="mx-auto flex w-full max-w-3xl flex-col items-start gap-2 px-0 md:px-10">
+              <div className="group flex w-full flex-col gap-0">
+                <div className="text-foreground prose w-full min-w-0 flex-1 rounded-lg bg-transparent p-0">
+                  <div className="flex items-start gap-3 mb-4">
+                    <Brain className="w-6 h-6 text-blue-500 mt-1" />
+                    <div>
+                      <h3 className="text-lg font-semibold mb-2">Welcome to PaperTrail 2.0!</h3>
+                      <p className="text-gray-600 mb-4">
+                        I&apos;m your intelligent research assistant. I can help you with scientific literature analysis, 
+                        argument mapping, and research insights.
+                      </p>
+                      <div className="space-y-2">
+                        <p className="text-sm font-medium text-gray-700">Try asking me:</p>
+                        <ul className="text-sm text-gray-600 space-y-1">
+                          <li>• &quot;What papers do I have about machine learning?&quot;</li>
+                          <li>• &quot;Find research on neural networks&quot;</li>
+                          <li>• &quot;Show me claims about AI accuracy improvements&quot;</li>
+                          <li>• &quot;Are there contradictions in my research collection?&quot;</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Message>
+          )}
+
           {messages.map((message, index) => {
             const isLastMessage = index === messages.length - 1
 
@@ -201,6 +271,7 @@ function ConversationPromptInput() {
           {status === "error" && error && <ErrorMessage error={error} />}
         </ChatContainerContent>
       </ChatContainerRoot>
+      
       <div className="inset-x-0 bottom-0 mx-auto w-full max-w-3xl shrink-0 px-3 pb-3 md:px-5 md:pb-5">
         <PromptInput
           isLoading={status !== "ready"}
@@ -211,12 +282,21 @@ function ConversationPromptInput() {
         >
           <div className="flex flex-col">
             <PromptInputTextarea
-              placeholder="Ask anything"
+              placeholder="Ask about research papers, upload documents, or explore scientific topics..."
               className="min-h-[44px] pt-3 pl-4 text-base leading-[1.3] sm:text-base md:text-base"
             />
 
             <PromptInputActions className="mt-3 flex w-full items-center justify-between gap-2 p-2">
               <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setShowUpload(true)}
+                  className="text-xs text-muted-foreground flex items-center gap-1"
+                >
+                  <Upload size={14} />
+                  Upload
+                </Button>
                 <Button
                   size="sm"
                   variant="ghost"
@@ -252,4 +332,4 @@ function ConversationPromptInput() {
   )
 }
 
-export default ConversationPromptInput
+export default ScientificChatbot

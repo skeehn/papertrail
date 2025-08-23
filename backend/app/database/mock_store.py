@@ -16,6 +16,7 @@ class MockPaperStore:
         self.papers: Dict[str, Dict[str, Any]] = {}
         self.entities: Dict[str, List[Dict[str, Any]]] = {}
         self.relationships: Dict[str, List[Dict[str, Any]]] = {}
+        self.memories: List[Dict[str, Any]] = []  # Simple list for conversation memories
 
     def store_paper(self, paper_data: Dict[str, Any]) -> str:
         """Store a paper and return its ID"""
@@ -159,6 +160,33 @@ class MockPaperStore:
                 "entity_count": entity_count,
             },
         }
+
+    def store_memory(self, memory_data: Dict[str, Any]) -> str:
+        """Store a conversation memory"""
+        memory_id = memory_data.get("id", str(uuid.uuid4()))
+        
+        memory = {
+            **memory_data,
+            "id": memory_id,
+            "created_at": memory_data.get("created_at", datetime.utcnow().isoformat()),
+            "updated_at": datetime.utcnow().isoformat()
+        }
+        
+        self.memories.append(memory)
+        return memory_id
+    
+    def get_memories(self, limit: int = 100, skip: int = 0) -> List[Dict[str, Any]]:
+        """Get stored memories with pagination"""
+        start_idx = skip
+        end_idx = skip + limit
+        return self.memories[start_idx:end_idx]
+    
+    def get_memory(self, memory_id: str) -> Optional[Dict[str, Any]]:
+        """Get a specific memory by ID"""
+        for memory in self.memories:
+            if memory.get("id") == memory_id:
+                return memory
+        return None
 
 
 # Global mock store instance

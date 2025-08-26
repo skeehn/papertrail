@@ -348,7 +348,7 @@ const extractTopics = (content: string): string[] => {
 
 // Temporarily disable advanced memory hooks to fix basic functionality
 export const useTemporalMemories = () => {
-  return useQuery({
+  return useQuery<any[]>({
     queryKey: ['temporal-memories'],
     queryFn: async () => {
       return []
@@ -358,7 +358,7 @@ export const useTemporalMemories = () => {
 }
 
 export const useTemporalMemoryStats = () => {
-  return useQuery({
+  return useQuery<any>({
     queryKey: ['temporal-memory-stats'],
     queryFn: async () => {
       return {
@@ -386,31 +386,37 @@ export const useCreateTemporalMemory = () => {
 }
 
 export const useAccessTemporalMemory = () => {
-  return useMutation({
-    mutationFn: async () => {
-      return Promise.resolve({})
-    }
+  return useMutation<void, Error, string>({
+    mutationFn: async (memoryId: string) => {
+      // noop
+      return
+    },
   })
 }
 
 export const useHierarchicalMemoryRetrieval = () => {
-  return useMutation({
-    mutationFn: async () => {
+  return useMutation<
+    { memories: any[]; performance: any },
+    Error,
+    { content_query: string; limit: number }
+  >({
+    mutationFn: async (vars) => {
+      // Simulate search result; real implementation would call backend
       return {
         memories: [],
         performance: {
           total_time_ms: 0,
           layers_searched: [],
           cache_hits: 0,
-          cache_misses: 0
-        }
+          cache_misses: 0,
+        },
       }
-    }
+    },
   })
 }
 
 export const useMemoryLayerStats = () => {
-  return useQuery({
+  return useQuery<Record<string, any>>({
     queryKey: ['memory-layer-stats'],
     queryFn: async () => {
       return {

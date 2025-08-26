@@ -27,10 +27,7 @@ const MemorySearchPanel = ({ className = "" }: MemorySearchPanelProps) => {
     if (!searchQuery.trim()) return
     
     try {
-      const results = await memorySearch.mutateAsync({
-        content_query: searchQuery,
-        limit: 10
-      })
+      const results = await memorySearch.mutateAsync({ content_query: searchQuery, limit: 10 })
       setSearchResults(results)
     } catch (error) {
       console.error('Memory search failed:', error)

@@ -30,23 +30,25 @@ class MemoryResponse(BaseModel):
 async def get_memories(
     limit: int = Query(20, ge=1, le=100),
     skip: int = Query(0, ge=0),
-    memory_type: Optional[str] = None
+    memory_type: Optional[str] = None,
 ):
     """Get memories from the knowledge base"""
     try:
         # Get memories from mock store
         all_memories = mock_store.get_memories()
-        
+
         # Filter by type if specified
         if memory_type:
-            all_memories = [m for m in all_memories if m.get("memory_type") == memory_type]
-        
+            all_memories = [
+                m for m in all_memories if m.get("memory_type") == memory_type
+            ]
+
         # Apply pagination
-        memories = all_memories[skip:skip + limit]
-        
+        memories = all_memories[skip : skip + limit]
+
         logger.info("Retrieved memories", count=len(memories), total=len(all_memories))
         return memories
-        
+
     except Exception as e:
         logger.error("Failed to get memories", error=str(e))
         raise HTTPException(status_code=500, detail="Failed to retrieve memories")
@@ -60,15 +62,15 @@ async def create_memory(memory: MemoryCreate):
             "content": memory.content,
             "memory_type": memory.memory_type,
             "metadata": memory.metadata or {},
-            "created_at": datetime.utcnow().isoformat()
+            "created_at": datetime.utcnow().isoformat(),
         }
-        
+
         memory_id = mock_store.store_memory(memory_data)
         stored_memory = mock_store.get_memory(memory_id)
-        
+
         logger.info("Created memory", memory_id=memory_id, type=memory.memory_type)
         return stored_memory
-        
+
     except Exception as e:
         logger.error("Failed to create memory", error=str(e))
         raise HTTPException(status_code=500, detail="Failed to create memory")
@@ -81,9 +83,9 @@ async def get_memory(memory_id: str):
         memory = mock_store.get_memory(memory_id)
         if not memory:
             raise HTTPException(status_code=404, detail="Memory not found")
-        
+
         return memory
-        
+
     except HTTPException:
         raise
     except Exception as e:

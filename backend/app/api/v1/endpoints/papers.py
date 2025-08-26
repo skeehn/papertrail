@@ -1,14 +1,17 @@
 from typing import List, Optional
 
 import structlog
-from fastapi import (APIRouter, BackgroundTasks, Depends, File, HTTPException,
-                     UploadFile)
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 
 from app.core.logging import get_logger, log_processing_step
-from app.models.schemas import (PaperListResponse, PaperProcessingRequest,
-                                PaperResponse, PaperUploadResponse,
-                                ProcessingStatus)
+from app.models.schemas import (
+    PaperListResponse,
+    PaperProcessingRequest,
+    PaperResponse,
+    PaperUploadResponse,
+    ProcessingStatus,
+)
 from app.services.entity_extractor import EntityExtractor
 from app.services.graph_builder import GraphBuilder
 from app.services.pdf_processor import PDFProcessor
@@ -213,10 +216,11 @@ async def process_paper_background(request: PaperProcessingRequest):
         )
         log_processing_step("entity_extraction", request.id)
         entity_extractor = EntityExtractor()
-        entities, relationships = (
-            await entity_extractor.extract_entities_and_relationships(
-                paper_data["text"]
-            )
+        (
+            entities,
+            relationships,
+        ) = await entity_extractor.extract_entities_and_relationships(
+            paper_data["text"]
         )
 
         # Step 3: Build knowledge graph

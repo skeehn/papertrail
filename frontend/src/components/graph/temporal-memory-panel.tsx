@@ -104,7 +104,7 @@ const TemporalMemoryPanel = ({ className = "" }: TemporalMemoryPanelProps) => {
           </div>
           
           <div className="space-y-2">
-            {Object.entries(stats.by_layer).map(([layer, count]) => (
+            {Object.entries(stats.by_layer as Record<string, number>).map(([layer, count]) => (
               <div key={layer} className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className={`w-2 h-2 rounded-full ${
@@ -131,7 +131,7 @@ const TemporalMemoryPanel = ({ className = "" }: TemporalMemoryPanelProps) => {
           </div>
           
           <div className="space-y-2">
-            {Object.entries(stats.by_type).map(([type, count]) => (
+            {Object.entries(stats.by_type as Record<string, number>).map(([type, count]) => (
               <div key={type} className="flex items-center justify-between text-sm">
                 <span className="capitalize">{type.replace('_', ' ')}</span>
                 <Badge variant="outline" className="text-xs">

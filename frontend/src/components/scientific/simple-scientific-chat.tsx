@@ -10,13 +10,16 @@ import { Brain, Upload, RotateCcw, Send } from 'lucide-react'
 export default function SimpleScientificChat() {
   const [showUpload, setShowUpload] = useState(false)
   
-  const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
-    api: '/api/scientific/intelligent-chat'
-  })
+  const chat = useChat()
+  const { messages } = chat
+  const input = (chat as any).input as string | undefined
+  const handleInputChange = (chat as any).handleInputChange as ((e: any) => void) | undefined
+  const handleSubmit = (chat as any).handleSubmit as ((e: any) => void) | undefined
+  const isLoading = (chat as any).isLoading as boolean | undefined
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (input?.trim() && !isLoading) {
+    if (input?.trim() && !isLoading && handleSubmit) {
       handleSubmit(e)
     }
   }
@@ -106,16 +109,16 @@ export default function SimpleScientificChat() {
               <Brain className="w-12 h-12 text-blue-500 mx-auto mb-4" />
               <h2 className="text-xl font-semibold mb-2">Welcome to PaperTrail 2.0!</h2>
               <p className="text-gray-600 mb-6">
-                I'm your intelligent research assistant. I can help you analyze scientific literature, 
+                I&apos;m your intelligent research assistant. I can help you analyze scientific literature, 
                 map arguments, and discover research insights.
               </p>
               <div className="text-left bg-gray-50 p-4 rounded-lg">
                 <p className="text-sm font-medium text-gray-700 mb-2">Try asking me:</p>
                 <ul className="text-sm text-gray-600 space-y-1">
-                  <li>• "What papers do I have about machine learning?"</li>
-                  <li>• "Find research on neural networks"</li>
-                  <li>• "Show me claims about AI accuracy improvements"</li>
-                  <li>• "Are there contradictions in my research collection?"</li>
+                  <li>• &quot;What papers do I have about machine learning?&quot;</li>
+                  <li>• &quot;Find research on neural networks&quot;</li>
+                  <li>• &quot;Show me claims about AI accuracy improvements&quot;</li>
+                  <li>• &quot;Are there contradictions in my research collection?&quot;</li>
                 </ul>
               </div>
             </Card>
@@ -141,7 +144,12 @@ export default function SimpleScientificChat() {
                 }`}
               >
                 <div className="prose prose-sm max-w-none">
-                  {message.content}
+                  {Array.isArray((message as any).parts)
+                    ? (message as any).parts
+                        .filter((p: any) => p && (typeof p === 'string' || p.type === 'text'))
+                        .map((p: any) => (typeof p === 'string' ? p : p.text))
+                        .join('')
+                    : (message as any).content ?? ''}
                 </div>
               </div>
               {message.role === 'user' && (

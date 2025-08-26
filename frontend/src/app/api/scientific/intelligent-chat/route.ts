@@ -40,7 +40,7 @@ IMPORTANT: Always use the searchPapers tool when users ask about:
 Use the memory tools to remember what users have asked before and build on previous conversations.
 
 Be scientific, evidence-based, and always cite your sources from the user's paper collection.`,
-      messages: messages,
+      messages: convertToModelMessages(messages),
       tools: {
         searchPapers: tool({
           description: "Search through the user's uploaded papers for specific topics, claims, or concepts",

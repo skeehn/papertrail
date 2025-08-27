@@ -1,14 +1,17 @@
 from typing import List, Optional
 
 import structlog
-from fastapi import (APIRouter, BackgroundTasks, Depends, File, HTTPException,
-                     UploadFile)
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 
 from app.core.logging import get_logger, log_processing_step
-from app.models.schemas import (PaperListResponse, PaperProcessingRequest,
-                                PaperResponse, PaperUploadResponse,
-                                ProcessingStatus)
+from app.models.schemas import (
+    PaperListResponse,
+    PaperProcessingRequest,
+    PaperResponse,
+    PaperUploadResponse,
+    ProcessingStatus,
+)
 from app.services.entity_extractor import EntityExtractor
 from app.services.graph_builder import GraphBuilder
 from app.services.pdf_processor import PDFProcessor

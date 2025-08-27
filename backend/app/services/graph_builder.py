@@ -6,8 +6,7 @@ import structlog
 
 from app.core.logging import get_logger, log_graph_operation
 from app.database.neo4j_client import GraphOperations, neo4j_client
-from app.services.entity_extractor import (ExtractedEntity,
-                                           ExtractedRelationship)
+from app.services.entity_extractor import ExtractedEntity, ExtractedRelationship
 
 
 class GraphBuilder:

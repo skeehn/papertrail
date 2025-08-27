@@ -351,7 +351,17 @@ export const useTemporalMemories = () => {
   return useQuery({
     queryKey: ['temporal-memories'],
     queryFn: async () => {
-      return []
+      // Return mock data with proper typing for development
+      return [] as Array<{
+        id: string;
+        memory_type: string;
+        memory_layer: 'hot' | 'warm' | 'cold';
+        confidence: number;
+        content: string;
+        t_accessed: string;
+        entities: string[];
+        access_count: number;
+      }>
     },
     staleTime: 30000,
   })
@@ -387,7 +397,8 @@ export const useCreateTemporalMemory = () => {
 
 export const useAccessTemporalMemory = () => {
   return useMutation({
-    mutationFn: async () => {
+    mutationFn: async (memoryId: string) => {
+      console.log('Accessing memory:', memoryId)
       return Promise.resolve({})
     }
   })
@@ -395,7 +406,8 @@ export const useAccessTemporalMemory = () => {
 
 export const useHierarchicalMemoryRetrieval = () => {
   return useMutation({
-    mutationFn: async () => {
+    mutationFn: async (params: { content_query: string; limit: number }) => {
+      console.log('Searching memories:', params)
       return {
         memories: [],
         performance: {

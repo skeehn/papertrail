@@ -114,7 +114,7 @@ const TemporalMemoryPanel = ({ className = "" }: TemporalMemoryPanelProps) => {
                   <span className="text-sm capitalize">{layer}</span>
                 </div>
                 <Badge variant="outline" className="text-xs">
-                  {count}
+                  {String(count)}
                 </Badge>
               </div>
             ))}
@@ -135,7 +135,7 @@ const TemporalMemoryPanel = ({ className = "" }: TemporalMemoryPanelProps) => {
               <div key={type} className="flex items-center justify-between text-sm">
                 <span className="capitalize">{type.replace('_', ' ')}</span>
                 <Badge variant="outline" className="text-xs">
-                  {count}
+                  {String(count)}
                 </Badge>
               </div>
             ))}

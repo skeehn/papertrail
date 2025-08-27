@@ -10,9 +10,7 @@ import { Brain, Upload, RotateCcw, Send } from 'lucide-react'
 export default function SimpleScientificChat() {
   const [showUpload, setShowUpload] = useState(false)
   
-  const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
-    api: '/api/scientific/intelligent-chat'
-  })
+  const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat() as any
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -121,7 +119,7 @@ export default function SimpleScientificChat() {
             </Card>
           )}
 
-          {messages.map((message, index) => (
+          {messages.map((message: any, index: number) => (
             <div
               key={message.id}
               className={`flex gap-3 ${
@@ -141,7 +139,7 @@ export default function SimpleScientificChat() {
                 }`}
               >
                 <div className="prose prose-sm max-w-none">
-                  {message.content}
+                  {(message as any).content}
                 </div>
               </div>
               {message.role === 'user' && (

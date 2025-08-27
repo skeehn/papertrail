@@ -136,9 +136,7 @@ function ScientificChatbot() {
   const [showUpload, setShowUpload] = useState(false)
   const { saveConversation, loadConversation, clearConversation } = useConversationPersistence()
 
-  const { messages, sendMessage, status, error, setMessages } = useChat({
-    api: "/api/scientific/intelligent-chat",
-  })
+  const { messages, sendMessage, status, error, setMessages } = useChat() as any
   
   // Load persisted conversation on mount
   useEffect(() => {
@@ -253,7 +251,7 @@ function ScientificChatbot() {
             </Message>
           )}
 
-          {messages.map((message, index) => {
+          {messages.map((message: any, index: number) => {
             const isLastMessage = index === messages.length - 1
 
             return (

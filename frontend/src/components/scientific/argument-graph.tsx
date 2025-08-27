@@ -32,8 +32,8 @@ interface ArgumentGraphProps {
 }
 
 const ArgumentGraph = ({ papers, selectedPaper }: ArgumentGraphProps) => {
-  const [nodes, setNodes, onNodesChange] = useNodesState([])
-  const [edges, setEdges, onEdgesChange] = useEdgesState([])
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node>([])
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
   const [selectedNode, setSelectedNode] = useState<any>(null)
 
   // Build graph from paper data

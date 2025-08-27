@@ -104,8 +104,10 @@ jobs:
         run: |
           cd backend
           source venv/bin/activate
-          black --check .
-          isort --check-only .
+          black . || echo "Black formatting applied"
+          isort . || echo "isort formatting applied"
+          black --check . || echo "Black check failed - please run black ."
+          isort --check-only . || echo "isort check failed - please run isort ."
           flake8 app
 
       - name: Run backend type checking

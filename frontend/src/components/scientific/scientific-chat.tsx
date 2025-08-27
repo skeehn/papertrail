@@ -178,7 +178,7 @@ const ScientificChat = ({ papers, selectedPaper }: ScientificChatProps) => {
                 <Brain className="w-5 h-5 text-blue-500 mt-0.5" />
                 <div>
                   <p className="text-sm">
-                    I'm your scientific research assistant. I can help you analyze "{selectedPaper.title}" 
+                    I&apos;m your scientific research assistant. I can help you analyze &quot;{selectedPaper.title}&quot; 
                     by examining its {selectedPaper.claims.length} claims and {selectedPaper.entities.length} entities.
                   </p>
                 </div>

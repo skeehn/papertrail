@@ -5,8 +5,12 @@ import structlog
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 
 from app.core.logging import get_logger, log_agent_activity
-from app.models.schemas import (AgentQueryRequest, AgentResponse,
-                                MultiAgentRequest, MultiAgentResponse)
+from app.models.schemas import (
+    AgentQueryRequest,
+    AgentResponse,
+    MultiAgentRequest,
+    MultiAgentResponse,
+)
 from app.services.agent_orchestrator import AgentOrchestrator
 
 router = APIRouter()

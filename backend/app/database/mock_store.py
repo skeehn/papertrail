@@ -17,19 +17,21 @@ class MockPaperStore:
         self.papers: Dict[str, Dict[str, Any]] = {}
         self.entities: Dict[str, List[Dict[str, Any]]] = {}
         self.relationships: Dict[str, List[Dict[str, Any]]] = {}
-        self.memories: List[Dict[str, Any]] = []  # Simple list for conversation memories
+        self.memories: List[Dict[str, Any]] = (
+            []
+        )  # Simple list for conversation memories
         self._load_data()
 
     def _load_data(self):
         """Load data from JSON file if it exists"""
         try:
             if os.path.exists(self.data_file):
-                with open(self.data_file, 'r') as f:
+                with open(self.data_file, "r") as f:
                     data = json.load(f)
-                    self.papers = data.get('papers', {})
-                    self.entities = data.get('entities', {})
-                    self.relationships = data.get('relationships', {})
-                    self.memories = data.get('memories', [])
+                    self.papers = data.get("papers", {})
+                    self.entities = data.get("entities", {})
+                    self.relationships = data.get("relationships", {})
+                    self.memories = data.get("memories", [])
                     print(f"Loaded {len(self.memories)} memories from {self.data_file}")
         except Exception as e:
             print(f"Failed to load data: {e}")
@@ -38,12 +40,12 @@ class MockPaperStore:
         """Save data to JSON file"""
         try:
             data = {
-                'papers': self.papers,
-                'entities': self.entities,
-                'relationships': self.relationships,
-                'memories': self.memories
+                "papers": self.papers,
+                "entities": self.entities,
+                "relationships": self.relationships,
+                "memories": self.memories,
             }
-            with open(self.data_file, 'w') as f:
+            with open(self.data_file, "w") as f:
                 json.dump(data, f, indent=2, default=str)
         except Exception as e:
             print(f"Failed to save data: {e}")
@@ -194,24 +196,24 @@ class MockPaperStore:
     def store_memory(self, memory_data: Dict[str, Any]) -> str:
         """Store a conversation memory"""
         memory_id = memory_data.get("id", str(uuid.uuid4()))
-        
+
         memory = {
             **memory_data,
             "id": memory_id,
             "created_at": memory_data.get("created_at", datetime.utcnow().isoformat()),
-            "updated_at": datetime.utcnow().isoformat()
+            "updated_at": datetime.utcnow().isoformat(),
         }
-        
+
         self.memories.append(memory)
         self._save_data()  # Persist to JSON
         return memory_id
-    
+
     def get_memories(self, limit: int = 100, skip: int = 0) -> List[Dict[str, Any]]:
         """Get stored memories with pagination"""
         start_idx = skip
         end_idx = skip + limit
         return self.memories[start_idx:end_idx]
-    
+
     def get_memory(self, memory_id: str) -> Optional[Dict[str, Any]]:
         """Get a specific memory by ID"""
         for memory in self.memories:

@@ -2,8 +2,7 @@ import json
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from app.agents.base_agent import (AgentResponse, AgentTask, AgentType,
-                                   BaseAgent)
+from app.agents.base_agent import AgentResponse, AgentTask, AgentType, BaseAgent
 from app.database.neo4j_client import neo4j_client
 
 

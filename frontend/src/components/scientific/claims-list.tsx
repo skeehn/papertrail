@@ -185,7 +185,7 @@ const ClaimsList = ({ papers, selectedPaper }: ClaimsListProps) => {
                 <div className="bg-gray-50 p-3 rounded-lg">
                   <span className="text-xs text-gray-500 block mb-1">Evidence:</span>
                   <p className="text-xs text-gray-700 italic">
-                    "{claim.evidence_span}"
+                    &quot;{claim.evidence_span}&quot;
                   </p>
                 </div>
               )}

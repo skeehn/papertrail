@@ -17,7 +17,7 @@ import {
   PromptInputTextarea,
 } from "@/components/prompt-kit/prompt-input"
 import { Button } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
+import { cn } from "../../lib/utils"
 import { useChat } from "@ai-sdk/react"
 import { DefaultChatTransport } from "ai"
 import type { UIMessage } from "ai"
@@ -136,9 +136,12 @@ function ScientificChatbot() {
   const [showUpload, setShowUpload] = useState(false)
   const { saveConversation, loadConversation, clearConversation } = useConversationPersistence()
 
-  const { messages, sendMessage, status, error, setMessages } = useChat({
-    api: "/api/scientific/intelligent-chat",
-  })
+  const chat = useChat()
+  const messages = chat.messages
+  const sendMessage = (chat as any).sendMessage as ((msg: { text: string }) => void)
+  const status = (chat as any).status as string
+  const error = (chat as any).error as Error | undefined
+  const setMessages = (chat as any).setMessages as ((msgs: any[]) => void)
   
   // Load persisted conversation on mount
   useEffect(() => {

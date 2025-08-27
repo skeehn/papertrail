@@ -7,8 +7,6 @@ import {
   Edge,
   Controls,
   Background,
-  useNodesState,
-  useEdgesState,
   Position,
   BackgroundVariant,
   Panel
@@ -32,8 +30,8 @@ interface ArgumentGraphProps {
 }
 
 const ArgumentGraph = ({ papers, selectedPaper }: ArgumentGraphProps) => {
-  const [nodes, setNodes, onNodesChange] = useNodesState([])
-  const [edges, setEdges, onEdgesChange] = useEdgesState([])
+  const [nodes, setNodes] = useState<Node[]>([])
+  const [edges, setEdges] = useState<Edge[]>([])
   const [selectedNode, setSelectedNode] = useState<any>(null)
 
   // Build graph from paper data
@@ -193,8 +191,8 @@ const ArgumentGraph = ({ papers, selectedPaper }: ArgumentGraphProps) => {
       <ReactFlow
         nodes={nodes}
         edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
+        onNodesChange={() => {}}
+        onEdgesChange={() => {}}
         onNodeClick={handleNodeClick}
         fitView
         fitViewOptions={{ padding: 0.1 }}

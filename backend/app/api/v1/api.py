@@ -1,7 +1,14 @@
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import (agents, entities, graph, memories, papers, search,
-                                  web_search)
+from app.api.v1.endpoints import (
+    agents,
+    entities,
+    graph,
+    memories,
+    papers,
+    search,
+    web_search,
+)
 
 api_router = APIRouter()
 

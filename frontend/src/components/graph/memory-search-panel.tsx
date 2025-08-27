@@ -146,7 +146,7 @@ const MemorySearchPanel = ({ className = "" }: MemorySearchPanelProps) => {
           
           {searchResults.memories.length === 0 && (
             <div className="text-center text-gray-500 text-sm py-4">
-              No memories found for "{searchQuery}"
+              No memories found for &quot;{searchQuery}&quot;
             </div>
           )}
         </Card>

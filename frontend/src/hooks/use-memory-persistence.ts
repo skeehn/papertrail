@@ -348,7 +348,7 @@ const extractTopics = (content: string): string[] => {
 
 // Temporarily disable advanced memory hooks to fix basic functionality
 export const useTemporalMemories = () => {
-  return useQuery({
+  return useQuery<any[]>({
     queryKey: ['temporal-memories'],
     queryFn: async () => {
       return []
@@ -378,29 +378,29 @@ export const useTemporalMemoryStats = () => {
 }
 
 export const useCreateTemporalMemory = () => {
-  return useMutation({
-    mutationFn: async () => {
+  return useMutation<any, unknown, { content: string } | undefined>({
+    mutationFn: async (_vars?: { content: string } | undefined) => {
       return Promise.resolve({})
     }
   })
 }
 
 export const useAccessTemporalMemory = () => {
-  return useMutation({
-    mutationFn: async () => {
+  return useMutation<any, unknown, string>({
+    mutationFn: async (_memoryId: string) => {
       return Promise.resolve({})
     }
   })
 }
 
 export const useHierarchicalMemoryRetrieval = () => {
-  return useMutation({
-    mutationFn: async () => {
+  return useMutation<any, unknown, { content_query: string; limit?: number }>({
+    mutationFn: async (_vars: { content_query: string; limit?: number }) => {
       return {
         memories: [],
         performance: {
           total_time_ms: 0,
-          layers_searched: [],
+          layers_searched: [] as string[],
           cache_hits: 0,
           cache_misses: 0
         }

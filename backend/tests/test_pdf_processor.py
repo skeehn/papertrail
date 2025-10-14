@@ -44,7 +44,9 @@ def test_extract_sections_uses_cached_full_text(tmp_path, monkeypatch):
     doc.close()
 
     def fail_extract(_self, _doc):
-        raise AssertionError("_extract_full_text should not be called during section extraction")
+        raise AssertionError(
+            "_extract_full_text should not be called during section extraction"
+        )
 
     monkeypatch.setattr(PDFProcessor, "_extract_full_text", fail_extract)
 

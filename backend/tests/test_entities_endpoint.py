@@ -15,7 +15,9 @@ if "aiohttp" not in sys.modules:
     sys.modules["aiohttp"] = types.SimpleNamespace(ClientSession=None)
 
 if "feedparser" not in sys.modules:
-    sys.modules["feedparser"] = types.SimpleNamespace(parse=lambda *args, **kwargs: None)
+    sys.modules["feedparser"] = types.SimpleNamespace(
+        parse=lambda *args, **kwargs: None
+    )
 
 from app.main import app  # noqa: E402
 import app.database.neo4j_client as neo4j_client_module  # noqa: E402

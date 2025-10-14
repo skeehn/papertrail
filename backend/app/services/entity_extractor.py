@@ -1,5 +1,6 @@
 import asyncio
 import json
+import re
 from dataclasses import asdict, dataclass
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
@@ -338,7 +339,13 @@ class EntityExtractor:
                             confidence=entity_dict["confidence"],
                             context=entity_dict["context"],
                         )
-                        entities.append(entity)
+                        if self._entity_appears_in_text(entity.name, text_chunk):
+                            entities.append(entity)
+                        else:
+                            self.logger.debug(
+                                "Discarding entity not found in text",
+                                entity=entity.name,
+                            )
                     except (KeyError, ValueError) as e:
                         self.logger.warning(
                             "Invalid entity data", entity=entity_dict, error=str(e)
@@ -351,6 +358,45 @@ class EntityExtractor:
         except Exception as e:
             self.logger.error("Failed to extract entities from chunk", error=str(e))
             return []
+
+    def _entity_appears_in_text(self, entity_name: str, text: str) -> bool:
+        """Return True if the entity name appears in the provided text."""
+        if not entity_name or not text:
+            return False
+
+        normalized_name = " ".join(entity_name.strip().split())
+        if not normalized_name:
+            return False
+
+        tokens = re.split(r"\s+", normalized_name)
+        pattern_tokens = []
+
+        for index, token in enumerate(tokens):
+            escaped_token = re.escape(token)
+            if index == len(tokens) - 1:
+                variants = {token}
+                lower_token = token.lower()
+
+                if len(token) > 1:
+                    if lower_token.endswith("y") and lower_token[-2] not in "aeiou":
+                        variants.add(token[:-1] + "ies")
+                    elif lower_token.endswith(("s", "x", "z", "ch", "sh")):
+                        variants.add(token + "es")
+                    else:
+                        variants.update({token + "s", token + "es"})
+                else:
+                    variants.add(token + "s")
+
+                escaped_variants = [re.escape(variant) for variant in variants]
+                pattern_tokens.append(f"(?:{'|'.join(escaped_variants)})")
+            else:
+                pattern_tokens.append(escaped_token)
+
+        pattern = r"\b" + r"\s+".join(pattern_tokens) + r"\b"
+        if re.search(pattern, text, flags=re.IGNORECASE):
+            return True
+
+        return normalized_name.lower() in text.lower()
 
     async def _extract_relationships_from_chunk(
         self, text_chunk: str, entity_context: str

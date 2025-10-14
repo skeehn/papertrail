@@ -84,20 +84,22 @@ class PDFProcessor:
 
             # Extract text and metadata from PDF
             doc = fitz.open(file_path)
+            try:
+                # Extract metadata
+                metadata = self._extract_metadata(doc)
 
-            # Extract metadata
-            metadata = self._extract_metadata(doc)
+                # Extract full text
+                full_text = self._extract_full_text(doc)
 
-            # Extract full text
-            full_text = self._extract_full_text(doc)
+                # Extract sections using cached full text
+                sections = self._extract_sections(doc, full_text)
 
-            # Extract sections
-            sections = self._extract_sections(doc)
+                # Extract citations
+                citations = self._extract_citations(full_text)
 
-            # Extract citations
-            citations = self._extract_citations(full_text)
-
-            doc.close()
+                page_count = len(doc)
+            finally:
+                doc.close()
 
             # Generate paper ID (use filename if no arXiv ID)
             paper_id = (
@@ -120,7 +122,7 @@ class PDFProcessor:
                 "updated_at": datetime.utcnow(),
                 "file_path": file_path,
                 "processing_stats": {
-                    "page_count": len(doc),
+                    "page_count": page_count,
                     "text_length": len(full_text),
                     "sections_found": len(sections),
                     "citations_found": len(citations),
@@ -130,7 +132,7 @@ class PDFProcessor:
             self.logger.info(
                 "PDF processing completed",
                 paper_id=paper_id,
-                page_count=len(doc),
+                page_count=page_count,
                 text_length=len(full_text),
             )
 
@@ -253,10 +255,17 @@ class PDFProcessor:
 
         return full_text.strip()
 
-    def _extract_sections(self, doc: fitz.Document) -> Dict[str, str]:
-        """Extract sections from PDF using pattern matching"""
+    def _extract_sections(self, _doc: fitz.Document, full_text: str) -> Dict[str, str]:
+        """Extract sections from PDF using pattern matching.
+
+        Args:
+            doc: The PDF document being processed. Provided for future use.
+            full_text: The cleaned, full text of the document to parse for sections.
+
+        Returns:
+            A mapping of section names to their extracted content.
+        """
         sections = {}
-        full_text = self._extract_full_text(doc)
 
         # Split text into lines for section detection
         lines = full_text.split("\n")

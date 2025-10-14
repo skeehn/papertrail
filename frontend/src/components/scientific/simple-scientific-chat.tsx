@@ -1,14 +1,22 @@
 "use client"
 
-import React, { useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useChat } from '@ai-sdk/react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Card } from '@/components/ui/card'
-import { Brain, Upload, RotateCcw, Send } from 'lucide-react'
+import { Brain, Upload, RotateCcw, Send, FileText, X } from 'lucide-react'
 
 export default function SimpleScientificChat() {
-  const [showUpload, setShowUpload] = useState(false)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle')
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [uploadError, setUploadError] = useState<string | null>(null)
+  const [processingId, setProcessingId] = useState<string | null>(null)
+  const [processingStatus, setProcessingStatus] = useState<string | null>(null)
+  const [processingMessage, setProcessingMessage] = useState<string | null>(null)
+  const uploadAbortRef = useRef<AbortController | null>(null)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
   
   const chat = useChat()
   const { messages } = chat
@@ -24,53 +32,210 @@ export default function SimpleScientificChat() {
     }
   }
 
-  if (showUpload) {
-    return (
-      <div className="flex flex-col h-screen bg-gray-50">
-        <div className="border-b bg-white px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Upload className="w-5 h-5 text-blue-500" />
-              <h2 className="text-lg font-semibold">Upload Research Papers</h2>
-            </div>
-            <Button
-              onClick={() => setShowUpload(false)}
-              variant="outline"
-              className="flex items-center gap-2"
-            >
-              <Brain className="w-4 h-4" />
-              Back to Chat
-            </Button>
-          </div>
-        </div>
-        <div className="flex-1 p-6">
-          <Card className="p-6 max-w-2xl mx-auto">
-            <div className="text-center">
-              <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium mb-2">Upload Scientific Papers</h3>
-              <p className="text-gray-600 mb-6">
-                Support for PDF files, DOI lookup, and arXiv integration coming soon.
-              </p>
-              <div className="grid gap-4">
-                <Button variant="outline" disabled>
-                  📄 Upload PDF
-                </Button>
-                <Button variant="outline" disabled>
-                  🔗 Enter DOI
-                </Button>
-                <Button variant="outline" disabled>
-                  📚 ArXiv URL
-                </Button>
-              </div>
-            </div>
-          </Card>
-        </div>
-      </div>
-    )
+  const resetUploadState = () => {
+    setSelectedFile(null)
+    setUploadStatus('idle')
+    setUploadProgress(0)
+    setUploadError(null)
+    setProcessingId(null)
+    setProcessingStatus(null)
+    setProcessingMessage(null)
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
   }
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) {
+      resetUploadState()
+      return
+    }
+
+    if (!file.name.toLowerCase().endsWith('.pdf')) {
+      setUploadStatus('error')
+      setUploadError('Only PDF files are supported. Please select a PDF document.')
+      setSelectedFile(null)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+      return
+    }
+
+    setSelectedFile(file)
+    setUploadStatus('idle')
+    setUploadProgress(0)
+    setUploadError(null)
+    setProcessingId(null)
+    setProcessingStatus(null)
+    setProcessingMessage(null)
+  }
+
+  const handleUpload = async () => {
+    if (!selectedFile) {
+      return
+    }
+
+    const abortController = new AbortController()
+    uploadAbortRef.current = abortController
+
+    setUploadStatus('uploading')
+    setUploadProgress(0)
+    setUploadError(null)
+    setProcessingId(null)
+    setProcessingStatus(null)
+    setProcessingMessage('Starting upload...')
+
+    try {
+      const formData = new FormData()
+      formData.append('file', selectedFile)
+
+      setUploadProgress(25)
+
+      const response = await fetch('/api/v1/papers/upload', {
+        method: 'POST',
+        body: formData,
+        signal: abortController.signal,
+      })
+
+      let data: any = null
+      try {
+        data = await response.json()
+      } catch {
+        // Ignore JSON parse errors; we'll fall back to status text below.
+      }
+
+      if (!response.ok) {
+        const errorMessage =
+          data?.detail ||
+          data?.error ||
+          response.statusText ||
+          'Failed to upload the PDF. Please try again.'
+        throw new Error(errorMessage)
+      }
+
+      if (!data) {
+        throw new Error('Unexpected response from the server. Please try again later.')
+      }
+
+      const processingIdentifier = (data.processing_id as string | undefined) ?? null
+      const initialStatus = (data.status as string | undefined) ?? null
+
+      setUploadProgress(100)
+      setUploadStatus('success')
+      setProcessingId(processingIdentifier)
+      setProcessingStatus(initialStatus)
+      setProcessingMessage(
+        processingIdentifier
+          ? 'Paper uploaded successfully. We will notify you when processing finishes.'
+          : 'Paper uploaded successfully. Waiting for processing to begin...'
+      )
+    } catch (error) {
+      if ((error as Error).name === 'AbortError') {
+        setProcessingMessage('Upload cancelled.')
+        setUploadStatus('idle')
+        setUploadProgress(0)
+        setProcessingId(null)
+        setProcessingStatus(null)
+      } else {
+        setUploadStatus('error')
+        setUploadError(
+          (error as Error).message || 'Something went wrong while uploading the paper.'
+        )
+        setUploadProgress(0)
+        setProcessingMessage(null)
+        setProcessingId(null)
+        setProcessingStatus(null)
+      }
+    } finally {
+      uploadAbortRef.current = null
+    }
+  }
+
+  const handleCancelUpload = () => {
+    if (uploadAbortRef.current) {
+      uploadAbortRef.current.abort()
+    }
+  }
+
+  useEffect(() => {
+    if (!processingId) {
+      return
+    }
+
+    let isActive = true
+    const pollInterval = 5000
+    let intervalId: ReturnType<typeof setInterval> | null = null
+
+    const pollProcessingStatus = async () => {
+      try {
+        const response = await fetch(`/api/v1/papers/${processingId}`)
+        if (!isActive) {
+          return
+        }
+
+        if (!response.ok) {
+          if (response.status === 404) {
+            setProcessingMessage('Processing has started. Waiting for status updates...')
+          }
+          return
+        }
+
+        const data = await response.json()
+        const status = (data.status as string | undefined) ?? null
+
+        if (status) {
+          setProcessingStatus(status)
+
+          if (status === 'completed') {
+            setProcessingMessage('Processing completed! You can now chat about this paper.')
+            isActive = false
+            if (intervalId) {
+              clearInterval(intervalId)
+            }
+          } else if (status === 'failed') {
+            setProcessingMessage('Processing failed. Please try uploading the paper again.')
+            isActive = false
+            if (intervalId) {
+              clearInterval(intervalId)
+            }
+          } else if (status === 'processing') {
+            setProcessingMessage('The paper is being processed...')
+          } else if (status === 'pending') {
+            setProcessingMessage('Paper received. Processing will begin shortly...')
+          }
+        }
+      } catch {
+        if (isActive) {
+          setProcessingMessage('Waiting for processing updates...')
+        }
+      }
+    }
+
+    pollProcessingStatus()
+    intervalId = setInterval(() => {
+      if (isActive) {
+        pollProcessingStatus()
+      }
+    }, pollInterval)
+
+    return () => {
+      isActive = false
+      if (intervalId) {
+        clearInterval(intervalId)
+      }
+    }
+  }, [processingId])
 
   return (
     <div className="flex flex-col h-screen bg-white">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="application/pdf"
+        onChange={handleFileChange}
+        className="hidden"
+      />
       {/* Header */}
       <div className="border-b bg-gray-50 px-6 py-4">
         <div className="flex items-center justify-between">
@@ -80,13 +245,18 @@ export default function SimpleScientificChat() {
           </div>
           <div className="flex gap-2">
             <Button
-              onClick={() => setShowUpload(true)}
+              onClick={() => {
+                if (uploadStatus !== 'uploading') {
+                  fileInputRef.current?.click()
+                }
+              }}
               variant="outline"
               size="sm"
               className="flex items-center gap-2"
+              disabled={uploadStatus === 'uploading'}
             >
               <Upload className="w-4 h-4" />
-              Upload
+              Add PDF
             </Button>
             <Button
               onClick={() => window.location.reload()}
@@ -124,7 +294,7 @@ export default function SimpleScientificChat() {
             </Card>
           )}
 
-          {messages.map((message, index) => (
+          {messages.map((message) => (
             <div
               key={message.id}
               className={`flex gap-3 ${
@@ -177,9 +347,9 @@ export default function SimpleScientificChat() {
       </div>
 
       {/* Input */}
-      <div className="border-t bg-white p-6">
-        <form onSubmit={onSubmit} className="max-w-4xl mx-auto">
-          <div className="flex gap-3">
+      <div className="border-t bg-white p-6 space-y-4">
+        <form onSubmit={onSubmit} className="max-w-4xl mx-auto space-y-3">
+          <div className="flex items-start gap-3">
             <Textarea
               value={input}
               onChange={handleInputChange}
@@ -187,19 +357,119 @@ export default function SimpleScientificChat() {
               className="flex-1 min-h-[50px] resize-none"
               rows={2}
             />
-            <Button
-              type="submit"
-              disabled={!input?.trim() || isLoading}
-              className="px-6 flex items-center gap-2"
-            >
-              <Send className="w-4 h-4" />
-              Send
-            </Button>
+            <div className="flex flex-col gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="flex items-center gap-2"
+                onClick={() => {
+                  if (uploadStatus !== 'uploading') {
+                    fileInputRef.current?.click()
+                  }
+                }}
+                disabled={uploadStatus === 'uploading'}
+              >
+                <Upload className="w-4 h-4" />
+                Attach
+              </Button>
+              <Button
+                type="submit"
+                disabled={!input?.trim() || isLoading}
+                className="px-6 flex items-center gap-2"
+              >
+                <Send className="w-4 h-4" />
+                Send
+              </Button>
+            </div>
           </div>
-          <p className="text-xs text-gray-500 mt-2 text-center">
+          <p className="text-xs text-gray-500 text-center">
             I can search your papers, analyze claims, and provide research insights.
           </p>
         </form>
+
+        {(selectedFile || uploadStatus !== 'idle' || processingId || uploadError) && (
+          <div className="max-w-4xl mx-auto">
+            <Card className="p-4 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-sm text-gray-700">
+                  <FileText className="w-4 h-4 text-blue-500" />
+                  <div className="flex flex-col">
+                    <span className="font-medium">
+                      {selectedFile ? selectedFile.name : 'No file selected'}
+                    </span>
+                    {selectedFile && (
+                      <span className="text-xs text-gray-500">
+                        {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  {uploadStatus !== 'uploading' && selectedFile && (
+                    <Button
+                      onClick={handleUpload}
+                      disabled={!selectedFile}
+                      className="flex items-center gap-2"
+                    >
+                      <Upload className="w-4 h-4" />
+                      Upload &amp; Process
+                    </Button>
+                  )}
+
+                  {uploadStatus === 'uploading' && (
+                    <Button variant="outline" onClick={handleCancelUpload}>
+                      Cancel Upload
+                    </Button>
+                  )}
+
+                  {(selectedFile || uploadStatus !== 'idle' || processingId) && (
+                    <Button variant="ghost" onClick={resetUploadState} className="flex items-center gap-2">
+                      <X className="w-4 h-4" />
+                      Clear
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {(uploadStatus === 'uploading' || uploadProgress > 0) && (
+                <div className="space-y-2">
+                  <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-blue-500 transition-all duration-500"
+                      style={{ width: `${uploadProgress}%` }}
+                    ></div>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    {uploadStatus === 'uploading'
+                      ? `Uploading... ${Math.round(uploadProgress)}%`
+                      : uploadStatus === 'success'
+                        ? 'Upload complete! Monitoring processing status.'
+                        : 'Ready to upload your PDF.'}
+                  </p>
+                </div>
+              )}
+
+              {uploadStatus === 'error' && uploadError && (
+                <p className="text-sm text-red-500">{uploadError}</p>
+              )}
+
+              {processingId && (
+                <div className="rounded-lg border border-dashed border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
+                  <p className="font-medium">Processing ID: {processingId}</p>
+                  {processingStatus && <p className="mt-1">Current status: {processingStatus}</p>}
+                  {processingMessage && (
+                    <p className="mt-2 text-xs text-blue-700">{processingMessage}</p>
+                  )}
+                </div>
+              )}
+
+              {uploadStatus === 'success' && !processingId && processingMessage && (
+                <p className="text-sm text-blue-600">{processingMessage}</p>
+              )}
+            </Card>
+          </div>
+        )}
       </div>
     </div>
   )

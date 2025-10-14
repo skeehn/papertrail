@@ -21,7 +21,8 @@ async def list_entities(
     """List entities with optional search and filtering"""
     try:
         if search:
-            entities = search_entities(search, entity_type, limit)
+            raw_entities = search_entities(search, entity_type, limit)
+            entities = [EntityResponse(**entity) for entity in raw_entities]
         else:
             # TODO: Implement paginated entity listing
             entities = []

@@ -236,8 +236,17 @@ class GraphOperations:
             query_text = """
             MATCH (e:Entity)
             WHERE e.name CONTAINS $query AND e.type = $entity_type
-            RETURN e.name as name, e.type as type, e.description as description
-            ORDER BY e.name
+            OPTIONAL MATCH (e)<-[:MENTIONS]-(p:Paper)
+            WITH e, collect(DISTINCT p) as papers
+            WITH e, CASE WHEN size(papers) > 0 THEN head(papers) ELSE NULL END AS paper
+            RETURN
+                e.name as name,
+                e.type as type,
+                e.description as description,
+                COALESCE(e.confidence, 0.0) as confidence,
+                paper.arxiv_id as paper_id,
+                paper.title as paper_title
+            ORDER BY name
             LIMIT $limit
             """
             result = session.run(
@@ -247,13 +256,27 @@ class GraphOperations:
             query_text = """
             MATCH (e:Entity)
             WHERE e.name CONTAINS $query
-            RETURN e.name as name, e.type as type, e.description as description
-            ORDER BY e.name
+            OPTIONAL MATCH (e)<-[:MENTIONS]-(p:Paper)
+            WITH e, collect(DISTINCT p) as papers
+            WITH e, CASE WHEN size(papers) > 0 THEN head(papers) ELSE NULL END AS paper
+            RETURN
+                e.name as name,
+                e.type as type,
+                e.description as description,
+                COALESCE(e.confidence, 0.0) as confidence,
+                paper.arxiv_id as paper_id,
+                paper.title as paper_title
+            ORDER BY name
             LIMIT $limit
             """
             result = session.run(query_text, query=query, limit=limit)
 
-        return [dict(record) for record in result]
+        normalized_results: List[Dict[str, Any]] = []
+        for record in result:
+            data = record.data()
+            normalized_results.append(_normalize_entity_result(data))
+
+        return normalized_results
 
     @staticmethod
     @with_session
@@ -280,6 +303,26 @@ class GraphOperations:
 
 
 # Convenience functions
+def _normalize_entity_result(entity: Dict[str, Any]) -> Dict[str, Any]:
+    """Ensure entity search results include required fields."""
+
+    description = entity.get("description")
+    paper_title = entity.get("paper_title")
+
+    normalized = {
+        "name": entity.get("name", ""),
+        "type": entity.get("type", ""),
+        "description": description if description is not None else "",
+        "confidence": float(entity.get("confidence", 0.0) or 0.0),
+        "paper_id": entity.get("paper_id") or "",
+    }
+
+    if paper_title is not None:
+        normalized["paper_title"] = paper_title
+
+    return normalized
+
+
 def create_paper(paper_data: Dict[str, Any]) -> str:
     """Create a paper node"""
     return GraphOperations.create_paper_node(paper_data)
@@ -321,7 +364,11 @@ def search_entities(
     query: str, entity_type: str = None, limit: int = 20
 ) -> List[Dict[str, Any]]:
     """Search entities"""
-    return GraphOperations.search_entities(query, entity_type, limit)
+    if NEO4J_AVAILABLE and getattr(neo4j_client, "_driver", None):
+        return GraphOperations.search_entities(query, entity_type, limit)
+
+    mock_results = mock_store.search_entities(query, entity_type, limit)
+    return [_normalize_entity_result(result) for result in mock_results]
 
 
 def get_graph_statistics() -> Dict[str, Any]:

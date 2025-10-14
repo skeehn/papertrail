@@ -227,6 +227,7 @@ class AgentOrchestrator:
 
         # Create steps based on agents
         steps = []
+        invalid_agents: List[str] = []
         for i, agent_type_str in enumerate(agents):
             try:
                 agent_type = AgentType(agent_type_str)
@@ -238,9 +239,17 @@ class AgentOrchestrator:
                 )
                 steps.append(step)
             except ValueError:
-                self.logger.warning(
-                    "Invalid agent type in workflow", agent_type=agent_type_str
-                )
+                invalid_agents.append(agent_type_str)
+
+        metadata: Dict[str, Any] = {}
+        if invalid_agents:
+            error_message = "Invalid agent types requested: " + ", ".join(invalid_agents)
+            metadata["error"] = error_message
+            self.logger.warning(
+                "Invalid agent types requested for workflow",
+                workflow_id=workflow_id,
+                invalid_agents=invalid_agents,
+            )
 
         workflow = Workflow(
             workflow_id=workflow_id,
@@ -248,6 +257,7 @@ class AgentOrchestrator:
             query=query,
             paper_ids=paper_ids,
             steps=steps,
+            metadata=metadata if metadata else None,
         )
 
         self.active_workflows[workflow_id] = workflow
@@ -514,6 +524,31 @@ class AgentOrchestrator:
         if workflow_id in self.active_workflows:
             workflow = self.active_workflows[workflow_id]
 
+            if not workflow.steps:
+                error_message = workflow.metadata.get("error") or "Workflow has no valid steps."
+                if "error" not in workflow.metadata:
+                    workflow.metadata["error"] = error_message
+
+                return {
+                    "workflow_id": workflow_id,
+                    "status": workflow.status.value,
+                    "progress": 0.0,
+                    "query": workflow.query,
+                    "workflow_type": workflow.workflow_type.value,
+                    "created_at": workflow.created_at.isoformat(),
+                    "started_at": (
+                        workflow.started_at.isoformat() if workflow.started_at else None
+                    ),
+                    "completed_at": (
+                        workflow.completed_at.isoformat()
+                        if workflow.completed_at
+                        else None
+                    ),
+                    "steps": [],
+                    "results_count": len(workflow.results),
+                    "error": error_message,
+                }
+
             step_statuses = []
             for step in workflow.steps:
                 step_statuses.append(
@@ -531,9 +566,11 @@ class AgentOrchestrator:
                     }
                 )
 
-            progress = len(
+            total_steps = len(workflow.steps)
+            completed_steps = len(
                 [s for s in workflow.steps if s.status == WorkflowStatus.COMPLETED]
-            ) / len(workflow.steps)
+            )
+            progress = completed_steps / total_steps if total_steps else 0.0
 
             return {
                 "workflow_id": workflow_id,

@@ -63,10 +63,13 @@ async def test_chunk_extraction_filters_missing_entities(extractor):
             ]
         }
 
-        function_call = SimpleNamespace(
-            name="extract_entities", arguments=json.dumps(payload)
+        # Updated to use new tool_calls format
+        tool_call = SimpleNamespace(
+            function=SimpleNamespace(
+                name="extract_entities", arguments=json.dumps(payload)
+            )
         )
-        message = SimpleNamespace(function_call=function_call)
+        message = SimpleNamespace(tool_calls=[tool_call])
         choice = SimpleNamespace(message=message)
         return SimpleNamespace(choices=[choice])
 

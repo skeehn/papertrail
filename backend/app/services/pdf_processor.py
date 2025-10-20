@@ -154,7 +154,9 @@ class PDFProcessor:
             pdf_url = f"https://arxiv.org/pdf/{clean_arxiv_id}.pdf"
 
             async with httpx.AsyncClient(timeout=30.0) as client:
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
+                with tempfile.NamedTemporaryFile(
+                    delete=False, suffix=".pdf"
+                ) as tmp_file:
                     async with client.stream("GET", pdf_url) as response:
                         response.raise_for_status()
 

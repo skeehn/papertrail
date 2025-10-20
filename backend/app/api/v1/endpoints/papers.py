@@ -45,6 +45,7 @@ async def upload_paper(
 
         # Ensure upload directory exists
         import os
+
         os.makedirs("uploads", exist_ok=True)
 
         # Save uploaded file with sanitized filename

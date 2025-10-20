@@ -18,7 +18,12 @@ export default function SimpleScientificChat() {
   const uploadAbortRef = useRef<AbortController | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   
-  const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat()
+  const chat = useChat()
+  const messages = chat.messages
+  const input = (chat as any).input as string
+  const handleInputChange = (chat as any).handleInputChange as (e: React.ChangeEvent<HTMLTextAreaElement>) => void
+  const handleSubmit = (chat as any).handleSubmit as (e: React.FormEvent) => void
+  const isLoading = (chat as any).isLoading as boolean
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault()

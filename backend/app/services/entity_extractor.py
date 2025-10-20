@@ -318,8 +318,13 @@ class EntityExtractor:
                         "content": f"Extract entities from this academic text:\n\n{text_chunk}",
                     },
                 ],
-                tools=[{"type": "function", "function": self.entity_extraction_function}],
-                tool_choice={"type": "function", "function": {"name": "extract_entities"}},
+                tools=[
+                    {"type": "function", "function": self.entity_extraction_function}
+                ],
+                tool_choice={
+                    "type": "function",
+                    "function": {"name": "extract_entities"},
+                },
                 temperature=0.1,
                 max_tokens=2000,
             )
@@ -420,8 +425,16 @@ class EntityExtractor:
                         "content": f"{entity_context}\n\nExtract relationships from this text:\n\n{text_chunk}",
                     },
                 ],
-                tools=[{"type": "function", "function": self.relationship_extraction_function}],
-                tool_choice={"type": "function", "function": {"name": "extract_relationships"}},
+                tools=[
+                    {
+                        "type": "function",
+                        "function": self.relationship_extraction_function,
+                    }
+                ],
+                tool_choice={
+                    "type": "function",
+                    "function": {"name": "extract_relationships"},
+                },
                 temperature=0.1,
                 max_tokens=2000,
             )

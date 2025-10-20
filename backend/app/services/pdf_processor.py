@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 import fitz  # PyMuPDF
-import requests
+import httpx
 import structlog
 
 from app.core.config import settings
@@ -153,14 +153,15 @@ class PDFProcessor:
             # Download PDF from arXiv
             pdf_url = f"https://arxiv.org/pdf/{clean_arxiv_id}.pdf"
 
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
-                response = requests.get(pdf_url, stream=True)
-                response.raise_for_status()
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
+                    async with client.stream("GET", pdf_url) as response:
+                        response.raise_for_status()
 
-                for chunk in response.iter_content(chunk_size=8192):
-                    tmp_file.write(chunk)
+                        async for chunk in response.aiter_bytes(chunk_size=8192):
+                            tmp_file.write(chunk)
 
-                tmp_file_path = tmp_file.name
+                    tmp_file_path = tmp_file.name
 
             try:
                 # Process the downloaded PDF
@@ -352,13 +353,14 @@ class PDFProcessor:
         """Fetch metadata from arXiv API"""
         try:
             api_url = f"http://export.arxiv.org/api/query?id_list={arxiv_id}"
-            response = requests.get(api_url)
-            response.raise_for_status()
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.get(api_url)
+                response.raise_for_status()
 
-            # Parse XML response
-            import xml.etree.ElementTree as ET
+                # Parse XML response
+                import xml.etree.ElementTree as ET
 
-            root = ET.fromstring(response.content)
+                root = ET.fromstring(response.content)
 
             # Extract metadata from XML
             metadata = {}

@@ -29,13 +29,29 @@ async def upload_paper(
     """Upload and process a PDF paper"""
     try:
         # Validate file type
+        if not file.filename:
+            raise HTTPException(status_code=400, detail="No filename provided")
+
         if not file.filename.lower().endswith(".pdf"):
             raise HTTPException(status_code=400, detail="Only PDF files are supported")
 
-        # Save uploaded file
-        file_path = f"uploads/{file.filename}"
+        # Validate file size
+        content = await file.read()
+        if len(content) > 50 * 1024 * 1024:  # 50MB limit
+            raise HTTPException(status_code=400, detail="File size exceeds 50MB limit")
+
+        if len(content) == 0:
+            raise HTTPException(status_code=400, detail="Empty file uploaded")
+
+        # Ensure upload directory exists
+        import os
+        os.makedirs("uploads", exist_ok=True)
+
+        # Save uploaded file with sanitized filename
+        safe_filename = os.path.basename(file.filename)
+        file_path = f"uploads/{safe_filename}"
+
         with open(file_path, "wb") as buffer:
-            content = await file.read()
             buffer.write(content)
 
         # Create processing request

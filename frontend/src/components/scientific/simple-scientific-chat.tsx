@@ -19,11 +19,11 @@ export default function SimpleScientificChat() {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   
   const chat = useChat()
-  const { messages } = chat
-  const input = (chat as any).input as string | undefined
-  const handleInputChange = (chat as any).handleInputChange as ((e: any) => void) | undefined
-  const handleSubmit = (chat as any).handleSubmit as ((e: any) => void) | undefined
-  const isLoading = (chat as any).isLoading as boolean | undefined
+  const messages = chat.messages
+  const input = (chat as any).input as string
+  const handleInputChange = (chat as any).handleInputChange as (e: React.ChangeEvent<HTMLTextAreaElement>) => void
+  const handleSubmit = (chat as any).handleSubmit as (e: React.FormEvent) => void
+  const isLoading = (chat as any).isLoading as boolean
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -324,7 +324,7 @@ export default function SimpleScientificChat() {
               </div>
               {message.role === 'user' && (
                 <div className="w-8 h-8 bg-gray-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
-                  {messages.length > 1 ? 'S' : 'U'}
+                  U
                 </div>
               )}
             </div>

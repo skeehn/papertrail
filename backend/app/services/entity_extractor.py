@@ -308,8 +308,8 @@ class EntityExtractor:
                 messages=[
                     {
                         "role": "system",
-                        "content": """You are an expert at extracting scientific entities from academic papers. 
-                        Extract key concepts, methods, datasets, algorithms, theories, claims, and other important 
+                        "content": """You are an expert at extracting scientific entities from academic papers.
+                        Extract key concepts, methods, datasets, algorithms, theories, claims, and other important
                         scientific entities. Be precise and avoid extracting common words or overly general terms.
                         Focus on domain-specific technical terms and proper nouns.""",
                     },
@@ -318,40 +318,47 @@ class EntityExtractor:
                         "content": f"Extract entities from this academic text:\n\n{text_chunk}",
                     },
                 ],
-                functions=[self.entity_extraction_function],
-                function_call={"name": "extract_entities"},
+                tools=[
+                    {"type": "function", "function": self.entity_extraction_function}
+                ],
+                tool_choice={
+                    "type": "function",
+                    "function": {"name": "extract_entities"},
+                },
                 temperature=0.1,
                 max_tokens=2000,
             )
 
-            # Parse function call response
-            function_call = response.choices[0].message.function_call
-            if function_call and function_call.name == "extract_entities":
-                entities_data = json.loads(function_call.arguments)
-                entities = []
+            # Parse tool call response
+            message = response.choices[0].message
+            if message.tool_calls and len(message.tool_calls) > 0:
+                tool_call = message.tool_calls[0]
+                if tool_call.function.name == "extract_entities":
+                    entities_data = json.loads(tool_call.function.arguments)
+                    entities = []
 
-                for entity_dict in entities_data.get("entities", []):
-                    try:
-                        entity = ExtractedEntity(
-                            name=entity_dict["name"],
-                            type=EntityType(entity_dict["type"]),
-                            description=entity_dict["description"],
-                            confidence=entity_dict["confidence"],
-                            context=entity_dict["context"],
-                        )
-                        if self._entity_appears_in_text(entity.name, text_chunk):
-                            entities.append(entity)
-                        else:
-                            self.logger.debug(
-                                "Discarding entity not found in text",
-                                entity=entity.name,
+                    for entity_dict in entities_data.get("entities", []):
+                        try:
+                            entity = ExtractedEntity(
+                                name=entity_dict["name"],
+                                type=EntityType(entity_dict["type"]),
+                                description=entity_dict["description"],
+                                confidence=entity_dict["confidence"],
+                                context=entity_dict["context"],
                             )
-                    except (KeyError, ValueError) as e:
-                        self.logger.warning(
-                            "Invalid entity data", entity=entity_dict, error=str(e)
-                        )
+                            if self._entity_appears_in_text(entity.name, text_chunk):
+                                entities.append(entity)
+                            else:
+                                self.logger.debug(
+                                    "Discarding entity not found in text",
+                                    entity=entity.name,
+                                )
+                        except (KeyError, ValueError) as e:
+                            self.logger.warning(
+                                "Invalid entity data", entity=entity_dict, error=str(e)
+                            )
 
-                return entities
+                    return entities
 
             return []
 
@@ -408,9 +415,9 @@ class EntityExtractor:
                 messages=[
                     {
                         "role": "system",
-                        "content": """You are an expert at identifying relationships between scientific entities. 
-                        Extract relationships that show how concepts, methods, algorithms, and theories interact, 
-                        support each other, contradict each other, or are otherwise connected. Focus on meaningful 
+                        "content": """You are an expert at identifying relationships between scientific entities.
+                        Extract relationships that show how concepts, methods, algorithms, and theories interact,
+                        support each other, contradict each other, or are otherwise connected. Focus on meaningful
                         scientific relationships, not trivial mentions.""",
                     },
                     {
@@ -418,37 +425,47 @@ class EntityExtractor:
                         "content": f"{entity_context}\n\nExtract relationships from this text:\n\n{text_chunk}",
                     },
                 ],
-                functions=[self.relationship_extraction_function],
-                function_call={"name": "extract_relationships"},
+                tools=[
+                    {
+                        "type": "function",
+                        "function": self.relationship_extraction_function,
+                    }
+                ],
+                tool_choice={
+                    "type": "function",
+                    "function": {"name": "extract_relationships"},
+                },
                 temperature=0.1,
                 max_tokens=2000,
             )
 
-            # Parse function call response
-            function_call = response.choices[0].message.function_call
-            if function_call and function_call.name == "extract_relationships":
-                relationships_data = json.loads(function_call.arguments)
-                relationships = []
+            # Parse tool call response
+            message = response.choices[0].message
+            if message.tool_calls and len(message.tool_calls) > 0:
+                tool_call = message.tool_calls[0]
+                if tool_call.function.name == "extract_relationships":
+                    relationships_data = json.loads(tool_call.function.arguments)
+                    relationships = []
 
-                for rel_dict in relationships_data.get("relationships", []):
-                    try:
-                        relationship = ExtractedRelationship(
-                            source=rel_dict["source"],
-                            target=rel_dict["target"],
-                            type=RelationshipType(rel_dict["type"]),
-                            description=rel_dict["description"],
-                            confidence=rel_dict["confidence"],
-                            context=rel_dict["context"],
-                        )
-                        relationships.append(relationship)
-                    except (KeyError, ValueError) as e:
-                        self.logger.warning(
-                            "Invalid relationship data",
-                            relationship=rel_dict,
-                            error=str(e),
-                        )
+                    for rel_dict in relationships_data.get("relationships", []):
+                        try:
+                            relationship = ExtractedRelationship(
+                                source=rel_dict["source"],
+                                target=rel_dict["target"],
+                                type=RelationshipType(rel_dict["type"]),
+                                description=rel_dict["description"],
+                                confidence=rel_dict["confidence"],
+                                context=rel_dict["context"],
+                            )
+                            relationships.append(relationship)
+                        except (KeyError, ValueError) as e:
+                            self.logger.warning(
+                                "Invalid relationship data",
+                                relationship=rel_dict,
+                                error=str(e),
+                            )
 
-                return relationships
+                    return relationships
 
             return []
 

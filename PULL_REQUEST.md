@@ -135,13 +135,19 @@
 
 ---
 
-## 🔧 Backend Fixes
+## 🔧 Backend & Bug Fixes
 
 ### Fixed Startup Issues
 - ✅ Made OPENAI_API_KEY optional with default placeholder
 - ✅ Created lightweight mock server for development
 - ✅ Mock server provides health endpoints and CORS
 - ✅ Backend now starts successfully without configuration
+
+### Fixed Chat Form Submission Bug
+- ✅ Fixed "Failed to construct FormData" error when pressing Enter
+- ✅ Changed Enter key handler to use `formRef.current?.requestSubmit()`
+- ✅ Properly triggers form submission with FormEvent instead of KeyboardEvent
+- ✅ Enter key now correctly sends messages without runtime errors
 
 ---
 

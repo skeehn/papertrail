@@ -75,7 +75,13 @@ class Settings(BaseSettings):
     GRAPH_CACHE_TTL: int = Field(default=3600)  # 1 hour
     GRAPH_MAX_NODES: int = Field(default=10000)
 
-    model_config = SettingsConfigDict(env_file=".env", case_sensitive=True)
+    if SettingsConfigDict is not None:
+        model_config = SettingsConfigDict(env_file=".env", case_sensitive=True)
+    else:
+
+        class Config:
+            env_file = ".env"
+            case_sensitive = True
 
 
 # Create settings instance

@@ -48,7 +48,9 @@ class Settings(BaseSettings):
     REDIS_URL: str = Field(default="redis://localhost:6379", env="REDIS_URL")
 
     # AI Services
-    OPENAI_API_KEY: str = Field(default="sk-placeholder-for-development", env="OPENAI_API_KEY")
+    OPENAI_API_KEY: str = Field(
+        default="sk-placeholder-for-development", env="OPENAI_API_KEY"
+    )
     OPENAI_MODEL: str = Field(default="gpt-4-turbo-preview", env="OPENAI_MODEL")
     OPENAI_MAX_TOKENS: int = Field(default=4000, env="OPENAI_MAX_TOKENS")
 

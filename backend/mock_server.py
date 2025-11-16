@@ -12,22 +12,27 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 @app.get("/")
 async def root():
     return {
         "message": "PaperTrail Mock Backend",
         "version": "0.1.0",
-        "status": "running"
+        "status": "running",
     }
+
 
 @app.get("/health")
 async def health():
     return {"status": "healthy"}
 
+
 @app.get("/api/v1/health")
 async def api_health():
     return {"status": "healthy", "version": "0.1.0"}
 
+
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8002)

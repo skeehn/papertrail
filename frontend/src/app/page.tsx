@@ -1,8 +1,13 @@
 "use client"
 
-import React from "react";
-import SimpleScientificChat from "@/components/scientific/simple-scientific-chat";
+import React from "react"
+import { AppLayout } from '@/components/layout/app-layout'
+import EnhancedChat from '@/components/chat/enhanced-chat'
 
 export default function Home() {
-  return <SimpleScientificChat />;
+  return (
+    <AppLayout>
+      <EnhancedChat />
+    </AppLayout>
+  )
 }

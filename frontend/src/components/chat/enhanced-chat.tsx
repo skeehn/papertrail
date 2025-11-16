@@ -22,6 +22,7 @@ export default function EnhancedChat() {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const messagesEndRef = useRef<HTMLDivElement | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+  const formRef = useRef<HTMLFormElement | null>(null)
 
   const chat = useChat()
   const messages = chat.messages
@@ -340,7 +341,7 @@ export default function EnhancedChat() {
       {/* Input Area */}
       <div className="border-t bg-card/50 backdrop-blur-sm">
         <div className="max-w-3xl mx-auto px-4 py-4 space-y-3">
-          <form onSubmit={onSubmit} className="relative">
+          <form ref={formRef} onSubmit={onSubmit} className="relative">
             <Textarea
               ref={textareaRef}
               value={input}
@@ -349,7 +350,7 @@ export default function EnhancedChat() {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault()
                   if (input?.trim() && !isLoading) {
-                    onSubmit(e as any)
+                    formRef.current?.requestSubmit()
                   }
                 }
               }}

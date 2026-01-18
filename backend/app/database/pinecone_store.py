@@ -3,13 +3,12 @@ from typing import Any, Dict, List, Optional
 import time
 
 try:
-    from pinecone import Pinecone, ServerlessSpec
+    import pinecone
     from sentence_transformers import SentenceTransformer
 
     PINECONE_AVAILABLE = True
 except ImportError:
-    Pinecone = None
-    ServerlessSpec = None
+    pinecone = None
     SentenceTransformer = None
     PINECONE_AVAILABLE = False
 
@@ -39,7 +38,8 @@ class PineconeStore:
             raise RuntimeError("PINECONE_API_KEY not set in environment")
 
         try:
-            self.pc = Pinecone(api_key=settings.PINECONE_API_KEY)
+            pinecone.init(api_key=settings.PINECONE_API_KEY, environment="us-east-1")
+            self.pc = pinecone
             self.logger.info("Pinecone client initialized")
         except Exception as e:
             self.logger.error("Failed to initialize Pinecone client", error=str(e))
@@ -67,23 +67,19 @@ class PineconeStore:
         try:
             # Check if index already exists
             existing_indexes = self.pc.list_indexes()
-            index_names = [idx["name"] for idx in existing_indexes]
 
-            if self.index_name in index_names:
+            if self.index_name in existing_indexes:
                 self.logger.info("Index already exists", index_name=self.index_name)
                 self.index = self.pc.Index(self.index_name)
             else:
-                # Create new index with serverless spec
+                # Create new index
                 self.pc.create_index(
-                    name=self.index_name,
-                    dimension=self.dimension,
-                    metric="cosine",
-                    spec=ServerlessSpec(cloud="aws", region="us-east-1"),
+                    name=self.index_name, dimension=self.dimension, metric="cosine"
                 )
                 self.logger.info("Pinecone index created", index_name=self.index_name)
 
                 # Wait for index to be ready
-                while not self.pc.describe_index(self.index_name).status["ready"]:
+                while not self.pc.describe_index(self.index_name).ready:
                     time.sleep(1)
 
                 self.index = self.pc.Index(self.index_name)

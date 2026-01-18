@@ -1,15 +1,16 @@
 """Multi-hop reasoning agent for complex research queries"""
 
-from typing import Any, Dict, List, Optional, Tuple
-from dataclasses import dataclass
 import asyncio
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Tuple
 
 import openai
+
+from app.agents.base_agent import AgentType, BaseAgent
 from app.core.config import settings
 from app.core.logging import get_logger
 from app.database.neo4j_client import Neo4jClient
 from app.database.pinecone_store import pinecone_store
-from app.agents.base_agent import BaseAgent, AgentType
 
 logger = get_logger("reasoning_agent")
 

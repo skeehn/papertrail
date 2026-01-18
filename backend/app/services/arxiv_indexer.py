@@ -2,18 +2,18 @@
 
 import asyncio
 import os
-from typing import Any, Dict, List, Optional
 from datetime import datetime
 from enum import Enum
+from typing import Any, Dict, List, Optional
 
 from app.core.config import settings
 from app.core.logging import get_logger
+from app.database.neo4j_client import Neo4jClient
+from app.database.pinecone_store import pinecone_store
 from app.services.arxiv_client import arxiv_client
-from app.services.pdf_processor import PDFProcessor
 from app.services.entity_extractor import EntityExtractor
 from app.services.graph_builder import GraphBuilder
-from app.database.pinecone_store import pinecone_store
-from app.database.neo4j_client import Neo4jClient
+from app.services.pdf_processor import PDFProcessor
 
 
 class ProcessingStatus(str, Enum):

@@ -1,9 +1,9 @@
 """Trend analysis service for detecting research trends over time"""
 
-from typing import Any, Dict, List, Optional, Tuple
-from datetime import datetime, timedelta
-from collections import defaultdict
 import statistics
+from collections import defaultdict
+from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional, Tuple
 
 from app.core.config import settings
 from app.core.logging import get_logger

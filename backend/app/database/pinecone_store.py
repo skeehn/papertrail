@@ -1,6 +1,6 @@
 import os
-from typing import Any, Dict, List, Optional
 import time
+from typing import Any, Dict, List, Optional
 
 try:
     import pinecone

@@ -1,12 +1,13 @@
 """ArXiv API endpoints"""
 
 from typing import Any, Dict, List, Optional
+
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 from pydantic import BaseModel, Field
 
+from app.core.logging import get_logger
 from app.services.arxiv_client import arxiv_client
 from app.services.arxiv_indexer import batch_indexer
-from app.core.logging import get_logger
 
 router = APIRouter()
 logger = get_logger("arxiv_api")

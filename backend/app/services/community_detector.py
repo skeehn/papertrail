@@ -1,8 +1,8 @@
 """Community detection service for identifying research topics and clusters"""
 
-from typing import Any, Dict, List, Optional, Tuple
-from datetime import datetime
 import asyncio
+from datetime import datetime
+from typing import Any, Dict, List, Optional, Tuple
 
 from app.core.config import settings
 from app.core.logging import get_logger

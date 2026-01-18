@@ -1,17 +1,18 @@
 """Research insights API endpoints"""
 
 from typing import Any, Dict, List, Optional
+
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from app.agents.reasoning_agent import answer_complex_query
+from app.core.logging import get_logger
 from app.services.trend_analyzer import (
     analyze_trends,
+    compare_entity_trends,
     find_emerging_topics,
     get_trending,
-    compare_entity_trends,
 )
-from app.core.logging import get_logger
 
 router = APIRouter()
 logger = get_logger("insights_api")

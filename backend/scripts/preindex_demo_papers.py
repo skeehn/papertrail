@@ -16,15 +16,15 @@ Usage:
 
 import argparse
 import asyncio
-import sys
 import os
+import sys
 
 # Add parent directory to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from app.services.arxiv_indexer import batch_indexer
-from app.database.pinecone_store import init_pinecone
 from app.core.logging import get_logger
+from app.database.pinecone_store import init_pinecone
+from app.services.arxiv_indexer import batch_indexer
 
 logger = get_logger("preindex_script")
 

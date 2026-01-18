@@ -1,10 +1,10 @@
 """ArXiv API client for fetching and downloading research papers"""
 
 import os
-import time
-from typing import Any, Dict, List, Optional
-from datetime import datetime
 import re
+import time
+from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 try:
     import arxiv

@@ -1,16 +1,17 @@
 """Community detection API endpoints"""
 
 from typing import Any, Dict, List, Optional
+
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 from pydantic import BaseModel, Field
 
+from app.core.logging import get_logger
 from app.services.community_detector import (
     community_detector,
     detect_research_communities,
     get_all_communities,
     get_community_by_id,
 )
-from app.core.logging import get_logger
 
 router = APIRouter()
 logger = get_logger("communities_api")

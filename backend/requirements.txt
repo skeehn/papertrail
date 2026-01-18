@@ -6,7 +6,7 @@ websockets>=11.0
 # Database and Vector Store
 neo4j>=5.0.0
 faiss-cpu>=1.7.0
-pinecone>=5.0.0
+pinecone-client>=5.0.0
 numpy>=1.24.0
 pandas>=2.0.0
 
@@ -55,5 +55,7 @@ mypy>=1.0.0
 python-dotenv>=1.0.0
 requests>=2.28.0
 tenacity>=8.0.0
-arxiv>=2.0.0
-firecrawl-py>=0.1.0 
+arxiv>=2.1.0
+feedparser>=6.0.0
+firecrawl-py>=0.1.0
+nest-asyncio>=1.5.0 

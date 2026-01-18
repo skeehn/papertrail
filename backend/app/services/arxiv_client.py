@@ -3,7 +3,7 @@
 import os
 import re
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 try:
@@ -284,8 +284,6 @@ class ArXivClient:
         Returns:
             List of paper metadata dictionaries
         """
-        from datetime import datetime, timedelta
-
         # Calculate start date
         start_date = (datetime.now() - timedelta(days=days_back)).strftime("%Y%m%d")
 

@@ -45,12 +45,37 @@ class Settings(BaseSettings):
 
     # AI Services
     OPENAI_API_KEY: str = Field(default="sk-placeholder-for-development")
+    OPENAI_BASE_URL: Optional[str] = Field(
+        default=None
+    )  # For OpenRouter or custom endpoints
     OPENAI_MODEL: str = Field(default="gpt-4-turbo-preview")
     OPENAI_MAX_TOKENS: int = Field(default=4000)
 
-    # Vector Store
-    FAISS_INDEX_PATH: str = Field(default="./data/faiss_index")
+    # Vector Store - Pinecone
+    PINECONE_API_KEY: str = Field(default="")
+    PINECONE_INDEX_NAME: str = Field(default="quickstart")
+    PINECONE_DIMENSION: int = Field(default=384)  # for all-MiniLM-L6-v2
     EMBEDDING_MODEL: str = Field(default="sentence-transformers/all-MiniLM-L6-v2")
+
+    # Legacy FAISS (keep for backwards compatibility)
+    FAISS_INDEX_PATH: str = Field(default="./data/faiss_index")
+
+    # Redis LangCache
+    LANGCACHE_API_KEY: str = Field(default="")
+    LANGCACHE_SERVER_URL: str = Field(
+        default="https://aws-us-east-1.langcache.redis.io"
+    )
+    LANGCACHE_CACHE_ID: str = Field(default="")
+    LANGCACHE_ENABLED: bool = Field(default=True)
+
+    # Firecrawl
+    FIRECRAWL_API_KEY: str = Field(default="")
+    FIRECRAWL_ENABLED: bool = Field(default=True)
+
+    # ArXiv
+    ARXIV_MAX_RESULTS: int = Field(default=100)
+    ARXIV_RATE_LIMIT: float = Field(default=3.0)  # requests per second
+    ARXIV_DOWNLOAD_DIR: str = Field(default="./data/arxiv_pdfs")
 
     # File Upload
     UPLOAD_DIR: str = Field(default="./uploads")
@@ -82,6 +107,7 @@ class Settings(BaseSettings):
 # Create settings instance
 settings = Settings()
 
-# Ensure upload directory exists
+# Ensure directories exist
 os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
 os.makedirs(settings.FAISS_INDEX_PATH, exist_ok=True)
+os.makedirs(settings.ARXIV_DOWNLOAD_DIR, exist_ok=True)

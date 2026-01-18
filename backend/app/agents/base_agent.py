@@ -66,7 +66,11 @@ class BaseAgent(ABC):
     def __init__(self, agent_type: AgentType):
         self.agent_type = agent_type
         self.logger = get_logger(f"agent.{agent_type.value}")
-        self.client = openai.AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+        # Initialize OpenAI client with optional base_url for OpenRouter support
+        client_kwargs = {"api_key": settings.OPENAI_API_KEY}
+        if settings.OPENAI_BASE_URL:
+            client_kwargs["base_url"] = settings.OPENAI_BASE_URL
+        self.client = openai.AsyncOpenAI(**client_kwargs)
 
         # Agent configuration
         self.max_retries = settings.AGENT_MAX_RETRIES

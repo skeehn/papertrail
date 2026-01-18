@@ -45,6 +45,7 @@ class Settings(BaseSettings):
 
     # AI Services
     OPENAI_API_KEY: str = Field(default="sk-placeholder-for-development")
+    OPENAI_BASE_URL: Optional[str] = Field(default=None)  # For OpenRouter or custom endpoints
     OPENAI_MODEL: str = Field(default="gpt-4-turbo-preview")
     OPENAI_MAX_TOKENS: int = Field(default=4000)
 

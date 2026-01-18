@@ -73,7 +73,11 @@ class EntityExtractor:
 
     def __init__(self):
         self.logger = get_logger("entity_extractor")
-        self.client = openai.AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+        # Initialize OpenAI client with optional base_url for OpenRouter support
+        client_kwargs = {"api_key": settings.OPENAI_API_KEY}
+        if settings.OPENAI_BASE_URL:
+            client_kwargs["base_url"] = settings.OPENAI_BASE_URL
+        self.client = openai.AsyncOpenAI(**client_kwargs)
 
         # Entity extraction function schema
         self.entity_extraction_function = {

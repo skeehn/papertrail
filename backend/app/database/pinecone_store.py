@@ -5,6 +5,7 @@ import time
 try:
     from pinecone import Pinecone, ServerlessSpec
     from sentence_transformers import SentenceTransformer
+
     PINECONE_AVAILABLE = True
 except ImportError:
     Pinecone = None
@@ -66,7 +67,7 @@ class PineconeStore:
         try:
             # Check if index already exists
             existing_indexes = self.pc.list_indexes()
-            index_names = [idx['name'] for idx in existing_indexes]
+            index_names = [idx["name"] for idx in existing_indexes]
 
             if self.index_name in index_names:
                 self.logger.info("Index already exists", index_name=self.index_name)
@@ -76,16 +77,13 @@ class PineconeStore:
                 self.pc.create_index(
                     name=self.index_name,
                     dimension=self.dimension,
-                    metric='cosine',
-                    spec=ServerlessSpec(
-                        cloud='aws',
-                        region='us-east-1'
-                    )
+                    metric="cosine",
+                    spec=ServerlessSpec(cloud="aws", region="us-east-1"),
                 )
                 self.logger.info("Pinecone index created", index_name=self.index_name)
 
                 # Wait for index to be ready
-                while not self.pc.describe_index(self.index_name).status['ready']:
+                while not self.pc.describe_index(self.index_name).status["ready"]:
                     time.sleep(1)
 
                 self.index = self.pc.Index(self.index_name)
@@ -105,14 +103,16 @@ class PineconeStore:
             self.logger.info(
                 "Connected to Pinecone index",
                 index_name=self.index_name,
-                vector_count=stats.get('total_vector_count', 0)
+                vector_count=stats.get("total_vector_count", 0),
             )
         except Exception as e:
             self.logger.error("Failed to connect to Pinecone index", error=str(e))
             # Try to create index if it doesn't exist
             self.create_index()
 
-    def add_documents(self, documents: List[Dict[str, Any]], batch_size: int = 100) -> None:
+    def add_documents(
+        self, documents: List[Dict[str, Any]], batch_size: int = 100
+    ) -> None:
         """Add documents to the vector store"""
         if not self.embedding_model:
             self.init_embedding_model()
@@ -135,11 +135,9 @@ class PineconeStore:
             embedding = self.embedding_model.encode([text])[0].tolist()
 
             # Prepare vector
-            vectors_to_upsert.append({
-                "id": doc_id,
-                "values": embedding,
-                "metadata": metadata
-            })
+            vectors_to_upsert.append(
+                {"id": doc_id, "values": embedding, "metadata": metadata}
+            )
 
             # Batch upsert
             if len(vectors_to_upsert) >= batch_size:
@@ -155,10 +153,7 @@ class PineconeStore:
         self.logger.info("Documents added to Pinecone", count=len(documents))
 
     def search(
-        self,
-        query: str,
-        k: int = 10,
-        filter_metadata: Optional[Dict[str, Any]] = None
+        self, query: str, k: int = 10, filter_metadata: Optional[Dict[str, Any]] = None
     ) -> List[Dict[str, Any]]:
         """Search for similar documents"""
         if not self.embedding_model or not self.index:
@@ -184,17 +179,17 @@ class PineconeStore:
                 vector=query_embedding,
                 top_k=k,
                 include_metadata=True,
-                filter=pinecone_filter
+                filter=pinecone_filter,
             )
 
             # Prepare results
             results = []
-            for match in response['matches']:
+            for match in response["matches"]:
                 result = {
-                    "id": match['id'],
-                    "score": float(match['score']),
-                    "metadata": match.get('metadata', {}),
-                    "text": match.get('metadata', {}).get('text', '')
+                    "id": match["id"],
+                    "score": float(match["score"]),
+                    "metadata": match.get("metadata", {}),
+                    "text": match.get("metadata", {}).get("text", ""),
                 }
                 results.append(result)
 
@@ -211,12 +206,12 @@ class PineconeStore:
 
         try:
             response = self.index.fetch(ids=[doc_id])
-            if doc_id in response['vectors']:
-                vector_data = response['vectors'][doc_id]
+            if doc_id in response["vectors"]:
+                vector_data = response["vectors"][doc_id]
                 return {
                     "id": doc_id,
-                    "metadata": vector_data.get('metadata', {}),
-                    "text": vector_data.get('metadata', {}).get('text', '')
+                    "metadata": vector_data.get("metadata", {}),
+                    "text": vector_data.get("metadata", {}).get("text", ""),
                 }
             return None
         except Exception as e:
@@ -242,11 +237,9 @@ class PineconeStore:
             metadata["text"] = new_text[:1000]
 
             # Upsert (update) vector
-            self.index.upsert(vectors=[{
-                "id": doc_id,
-                "values": new_embedding,
-                "metadata": metadata
-            }])
+            self.index.upsert(
+                vectors=[{"id": doc_id, "values": new_embedding, "metadata": metadata}]
+            )
 
             self.logger.info("Document updated", doc_id=doc_id)
             return True
@@ -296,10 +289,10 @@ class PineconeStore:
         try:
             stats = self.index.describe_index_stats()
             return {
-                "total_vectors": stats.get('total_vector_count', 0),
-                "dimension": stats.get('dimension', self.dimension),
-                "index_fullness": stats.get('index_fullness', 0),
-                "namespaces": stats.get('namespaces', {}),
+                "total_vectors": stats.get("total_vector_count", 0),
+                "dimension": stats.get("dimension", self.dimension),
+                "index_fullness": stats.get("index_fullness", 0),
+                "namespaces": stats.get("namespaces", {}),
                 "model_name": settings.EMBEDDING_MODEL,
             }
         except Exception as e:
@@ -308,7 +301,7 @@ class PineconeStore:
                 "total_vectors": 0,
                 "dimension": self.dimension,
                 "model_name": settings.EMBEDDING_MODEL,
-                "error": str(e)
+                "error": str(e),
             }
 
 

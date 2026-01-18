@@ -1,4 +1,5 @@
 """ArXiv API client for fetching and downloading research papers"""
+
 import os
 import time
 from typing import Any, Dict, List, Optional
@@ -7,6 +8,7 @@ import re
 
 try:
     import arxiv
+
     ARXIV_AVAILABLE = True
 except ImportError:
     arxiv = None
@@ -48,7 +50,7 @@ class ArXivClient:
         max_results: int = 10,
         sort_by: str = "relevance",
         sort_order: str = "descending",
-        categories: Optional[List[str]] = None
+        categories: Optional[List[str]] = None,
     ) -> List[Dict[str, Any]]:
         """
         Search for papers on arXiv
@@ -76,14 +78,16 @@ class ArXivClient:
             sort_criterion_map = {
                 "relevance": arxiv.SortCriterion.Relevance,
                 "lastUpdatedDate": arxiv.SortCriterion.LastUpdatedDate,
-                "submittedDate": arxiv.SortCriterion.SubmittedDate
+                "submittedDate": arxiv.SortCriterion.SubmittedDate,
             }
-            sort_criterion = sort_criterion_map.get(sort_by, arxiv.SortCriterion.Relevance)
+            sort_criterion = sort_criterion_map.get(
+                sort_by, arxiv.SortCriterion.Relevance
+            )
 
             # Map sort_order to arxiv.SortOrder
             sort_order_map = {
                 "ascending": arxiv.SortOrder.Ascending,
-                "descending": arxiv.SortOrder.Descending
+                "descending": arxiv.SortOrder.Descending,
             }
             order = sort_order_map.get(sort_order, arxiv.SortOrder.Descending)
 
@@ -92,7 +96,7 @@ class ArXivClient:
                 query=search_query,
                 max_results=min(max_results, self.max_results),
                 sort_by=sort_criterion,
-                sort_order=order
+                sort_order=order,
             )
 
             # Execute search and collect results
@@ -101,11 +105,7 @@ class ArXivClient:
                 paper = self._parse_paper_result(result)
                 papers.append(paper)
 
-            self.logger.info(
-                "ArXiv search completed",
-                query=query,
-                results=len(papers)
-            )
+            self.logger.info("ArXiv search completed", query=query, results=len(papers))
             return papers
 
         except Exception as e:
@@ -176,9 +176,7 @@ class ArXivClient:
             return []
 
     def download_paper(
-        self,
-        arxiv_id: str,
-        filename: Optional[str] = None
+        self, arxiv_id: str, filename: Optional[str] = None
     ) -> Optional[str]:
         """
         Download PDF for a paper
@@ -219,14 +217,13 @@ class ArXivClient:
             return filepath
 
         except Exception as e:
-            self.logger.error("Failed to download paper", arxiv_id=arxiv_id, error=str(e))
+            self.logger.error(
+                "Failed to download paper", arxiv_id=arxiv_id, error=str(e)
+            )
             return None
 
     def search_by_category(
-        self,
-        category: str,
-        max_results: int = 50,
-        start_date: Optional[str] = None
+        self, category: str, max_results: int = 50, start_date: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """
         Search for recent papers in a specific category
@@ -248,13 +245,11 @@ class ArXivClient:
             query=query,
             max_results=max_results,
             sort_by="submittedDate",
-            sort_order="descending"
+            sort_order="descending",
         )
 
     def search_by_author(
-        self,
-        author_name: str,
-        max_results: int = 20
+        self, author_name: str, max_results: int = 20
     ) -> List[Dict[str, Any]]:
         """
         Search for papers by author
@@ -272,14 +267,11 @@ class ArXivClient:
             query=query,
             max_results=max_results,
             sort_by="submittedDate",
-            sort_order="descending"
+            sort_order="descending",
         )
 
     def get_trending_papers(
-        self,
-        categories: List[str],
-        days_back: int = 7,
-        max_results: int = 50
+        self, categories: List[str], days_back: int = 7, max_results: int = 50
     ) -> List[Dict[str, Any]]:
         """
         Get trending papers from specific categories in the last N days
@@ -305,7 +297,7 @@ class ArXivClient:
             query=query,
             max_results=max_results,
             sort_by="submittedDate",
-            sort_order="descending"
+            sort_order="descending",
         )
 
     def _parse_paper_result(self, result: Any) -> Dict[str, Any]:
@@ -353,9 +345,9 @@ class ArXivClient:
         """Extract arXiv ID from a URL"""
         # Patterns for arXiv URLs
         patterns = [
-            r'arxiv\.org/abs/(\d{4}\.\d{4,5})',
-            r'arxiv\.org/pdf/(\d{4}\.\d{4,5})',
-            r'arxiv\.org/abs/([a-z\-]+/\d{7})',
+            r"arxiv\.org/abs/(\d{4}\.\d{4,5})",
+            r"arxiv\.org/pdf/(\d{4}\.\d{4,5})",
+            r"arxiv\.org/abs/([a-z\-]+/\d{7})",
         ]
 
         for pattern in patterns:
@@ -401,7 +393,7 @@ class ArXivClient:
             ],
             "Economics": [
                 "econ.EM",  # Econometrics
-            ]
+            ],
         }
 
 
@@ -410,9 +402,7 @@ arxiv_client = ArXivClient()
 
 
 def search_arxiv(
-    query: str,
-    max_results: int = 10,
-    categories: Optional[List[str]] = None
+    query: str, max_results: int = 10, categories: Optional[List[str]] = None
 ) -> List[Dict[str, Any]]:
     """Search arXiv for papers"""
     return arxiv_client.search_papers(query, max_results, categories=categories)
@@ -428,7 +418,9 @@ def download_arxiv_pdf(arxiv_id: str) -> Optional[str]:
     return arxiv_client.download_paper(arxiv_id)
 
 
-def get_trending_ai_papers(days_back: int = 7, max_results: int = 50) -> List[Dict[str, Any]]:
+def get_trending_ai_papers(
+    days_back: int = 7, max_results: int = 50
+) -> List[Dict[str, Any]]:
     """Get trending AI/ML papers"""
     categories = ["cs.AI", "cs.LG", "cs.CL", "cs.CV", "stat.ML"]
     return arxiv_client.get_trending_papers(categories, days_back, max_results)

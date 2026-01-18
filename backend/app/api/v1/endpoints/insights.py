@@ -1,4 +1,5 @@
 """Research insights API endpoints"""
+
 from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -8,7 +9,7 @@ from app.services.trend_analyzer import (
     analyze_trends,
     find_emerging_topics,
     get_trending,
-    compare_entity_trends
+    compare_entity_trends,
 )
 from app.core.logging import get_logger
 
@@ -19,23 +20,33 @@ logger = get_logger("insights_api")
 # Request/Response Models
 class ComplexQueryRequest(BaseModel):
     """Request model for complex reasoning"""
+
     query: str = Field(..., description="Complex research question")
-    context: Optional[Dict[str, Any]] = Field(default=None, description="Optional context")
+    context: Optional[Dict[str, Any]] = Field(
+        default=None, description="Optional context"
+    )
 
 
 class TrendAnalysisRequest(BaseModel):
     """Request model for trend analysis"""
+
     entity_name: Optional[str] = Field(default=None, description="Entity to analyze")
-    time_window_years: int = Field(default=5, ge=1, le=10, description="Years to analyze")
+    time_window_years: int = Field(
+        default=5, ge=1, le=10, description="Years to analyze"
+    )
 
 
 class CompareTrendsRequest(BaseModel):
     """Request model for comparing trends"""
+
     entity_names: List[str] = Field(..., description="Entities to compare")
-    time_window_years: int = Field(default=5, ge=1, le=10, description="Years to analyze")
+    time_window_years: int = Field(
+        default=5, ge=1, le=10, description="Years to analyze"
+    )
 
 
 # Endpoints
+
 
 @router.post("/reasoning", response_model=Dict[str, Any])
 async def complex_reasoning(request: ComplexQueryRequest) -> Dict[str, Any]:
@@ -77,8 +88,7 @@ async def analyze_entity_trends(request: TrendAnalysisRequest) -> Dict[str, Any]
     """
     try:
         result = await analyze_trends(
-            entity_name=request.entity_name,
-            time_window_years=request.time_window_years
+            entity_name=request.entity_name, time_window_years=request.time_window_years
         )
         return result
 
@@ -90,7 +100,7 @@ async def analyze_entity_trends(request: TrendAnalysisRequest) -> Dict[str, Any]
 @router.get("/trends/emerging", response_model=List[Dict[str, Any]])
 async def get_emerging_topics(
     lookback_months: int = Query(default=12, ge=1, le=36),
-    min_growth_rate: float = Query(default=50.0, ge=0.0)
+    min_growth_rate: float = Query(default=50.0, ge=0.0),
 ) -> List[Dict[str, Any]]:
     """
     Detect emerging research topics
@@ -114,7 +124,7 @@ async def get_emerging_topics(
 @router.get("/trends/trending", response_model=List[Dict[str, Any]])
 async def get_trending_topics(
     recent_months: int = Query(default=6, ge=1, le=24),
-    top_n: int = Query(default=10, ge=1, le=50)
+    top_n: int = Query(default=10, ge=1, le=50),
 ) -> List[Dict[str, Any]]:
     """
     Get currently trending research topics
@@ -150,7 +160,7 @@ async def compare_trends(request: CompareTrendsRequest) -> Dict[str, Any]:
     try:
         result = await compare_entity_trends(
             entity_names=request.entity_names,
-            time_window_years=request.time_window_years
+            time_window_years=request.time_window_years,
         )
         return result
 
@@ -184,13 +194,15 @@ async def get_research_landscape_summary() -> Dict[str, Any]:
             "trending_now": trending,
             "emerging_topics": emerging[:5],
             "overall_trends": {
-                "total_entities_tracked": all_trends.get("summary", {}).get("total_entities", 0),
+                "total_entities_tracked": all_trends.get("summary", {}).get(
+                    "total_entities", 0
+                ),
                 "rising_topics": all_trends.get("summary", {}).get("rising", 0),
                 "declining_topics": all_trends.get("summary", {}).get("declining", 0),
             },
             "top_rising": all_trends.get("top_rising", [])[:5],
             "most_mentioned": all_trends.get("most_mentioned", [])[:5],
-            "generated_at": "2026-01-18T00:00:00Z"
+            "generated_at": "2026-01-18T00:00:00Z",
         }
 
         return summary

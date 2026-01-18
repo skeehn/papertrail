@@ -1,4 +1,5 @@
 """ArXiv API endpoints"""
+
 from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -14,27 +15,37 @@ logger = get_logger("arxiv_api")
 # Request/Response Models
 class ArXivSearchRequest(BaseModel):
     """Request model for arXiv search"""
+
     query: str = Field(..., description="Search query")
     max_results: int = Field(default=10, ge=1, le=100, description="Maximum results")
-    categories: Optional[List[str]] = Field(default=None, description="Filter by categories")
+    categories: Optional[List[str]] = Field(
+        default=None, description="Filter by categories"
+    )
     sort_by: str = Field(default="relevance", description="Sort criterion")
     sort_order: str = Field(default="descending", description="Sort order")
 
 
 class BulkIndexRequest(BaseModel):
     """Request model for bulk indexing"""
+
     arxiv_ids: List[str] = Field(..., description="List of arXiv IDs to index")
 
 
 class QueryIndexRequest(BaseModel):
     """Request model for search and index"""
+
     query: str = Field(..., description="Search query")
-    max_results: int = Field(default=50, ge=1, le=200, description="Maximum papers to index")
-    categories: Optional[List[str]] = Field(default=None, description="Filter by categories")
+    max_results: int = Field(
+        default=50, ge=1, le=200, description="Maximum papers to index"
+    )
+    categories: Optional[List[str]] = Field(
+        default=None, description="Filter by categories"
+    )
 
 
 class TrendingIndexRequest(BaseModel):
     """Request model for trending papers index"""
+
     categories: List[str] = Field(..., description="ArXiv categories")
     days_back: int = Field(default=7, ge=1, le=30, description="Days to look back")
     max_results: int = Field(default=50, ge=1, le=200, description="Maximum papers")
@@ -42,6 +53,7 @@ class TrendingIndexRequest(BaseModel):
 
 class PaperResponse(BaseModel):
     """Response model for paper"""
+
     arxiv_id: str
     title: str
     abstract: str
@@ -53,6 +65,7 @@ class PaperResponse(BaseModel):
 
 class JobStatusResponse(BaseModel):
     """Response model for job status"""
+
     job_id: str
     status: str
     total_papers: int
@@ -62,6 +75,7 @@ class JobStatusResponse(BaseModel):
 
 
 # Endpoints
+
 
 @router.post("/search", response_model=List[PaperResponse])
 async def search_arxiv(request: ArXivSearchRequest) -> List[Dict[str, Any]]:
@@ -80,7 +94,7 @@ async def search_arxiv(request: ArXivSearchRequest) -> List[Dict[str, Any]]:
             max_results=request.max_results,
             sort_by=request.sort_by,
             sort_order=request.sort_order,
-            categories=request.categories
+            categories=request.categories,
         )
 
         return papers
@@ -114,8 +128,7 @@ async def get_paper(arxiv_id: str) -> Dict[str, Any]:
 
 @router.post("/bulk-index", response_model=Dict[str, Any])
 async def bulk_index_papers(
-    request: BulkIndexRequest,
-    background_tasks: BackgroundTasks
+    request: BulkIndexRequest, background_tasks: BackgroundTasks
 ) -> Dict[str, Any]:
     """
     Index multiple papers by arXiv IDs
@@ -142,18 +155,19 @@ async def bulk_index_papers(
             "job_id": job_id,
             "status": "started",
             "total_papers": len(request.arxiv_ids),
-            "message": f"Indexing {len(request.arxiv_ids)} papers in background"
+            "message": f"Indexing {len(request.arxiv_ids)} papers in background",
         }
 
     except Exception as e:
         logger.error("Failed to start bulk indexing", error=str(e))
-        raise HTTPException(status_code=500, detail=f"Failed to start indexing: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to start indexing: {str(e)}"
+        )
 
 
 @router.post("/index-by-search", response_model=Dict[str, Any])
 async def index_by_search(
-    request: QueryIndexRequest,
-    background_tasks: BackgroundTasks
+    request: QueryIndexRequest, background_tasks: BackgroundTasks
 ) -> Dict[str, Any]:
     """
     Search arXiv and index the results
@@ -174,7 +188,7 @@ async def index_by_search(
             await batch_indexer.index_papers_by_query(
                 query=request.query,
                 max_results=request.max_results,
-                categories=request.categories
+                categories=request.categories,
             )
 
         background_tasks.add_task(lambda: asyncio.run(run_indexing()))
@@ -184,18 +198,19 @@ async def index_by_search(
             "status": "started",
             "query": request.query,
             "max_results": request.max_results,
-            "message": f"Searching and indexing papers for query: {request.query}"
+            "message": f"Searching and indexing papers for query: {request.query}",
         }
 
     except Exception as e:
         logger.error("Failed to start search indexing", error=str(e))
-        raise HTTPException(status_code=500, detail=f"Failed to start indexing: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to start indexing: {str(e)}"
+        )
 
 
 @router.post("/index-trending", response_model=Dict[str, Any])
 async def index_trending(
-    request: TrendingIndexRequest,
-    background_tasks: BackgroundTasks
+    request: TrendingIndexRequest, background_tasks: BackgroundTasks
 ) -> Dict[str, Any]:
     """
     Index trending papers from specific categories
@@ -216,7 +231,7 @@ async def index_trending(
             await batch_indexer.index_trending_papers(
                 categories=request.categories,
                 days_back=request.days_back,
-                max_results=request.max_results
+                max_results=request.max_results,
             )
 
         background_tasks.add_task(lambda: asyncio.run(run_indexing()))
@@ -226,18 +241,22 @@ async def index_trending(
             "status": "started",
             "categories": request.categories,
             "days_back": request.days_back,
-            "message": f"Indexing trending papers from {len(request.categories)} categories"
+            "message": f"Indexing trending papers from {len(request.categories)} categories",
         }
 
     except Exception as e:
         logger.error("Failed to start trending indexing", error=str(e))
-        raise HTTPException(status_code=500, detail=f"Failed to start indexing: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to start indexing: {str(e)}"
+        )
 
 
 @router.post("/index-demo-papers", response_model=Dict[str, Any])
 async def index_demo_papers(
     background_tasks: BackgroundTasks,
-    max_results: int = Query(default=100, ge=10, le=200, description="Maximum papers to index")
+    max_results: int = Query(
+        default=100, ge=10, le=200, description="Maximum papers to index"
+    ),
 ) -> Dict[str, Any]:
     """
     Index a diverse set of AI research papers for demo purposes
@@ -269,12 +288,14 @@ async def index_demo_papers(
             "job_id": job_id,
             "status": "started",
             "max_results": max_results,
-            "message": f"Indexing up to {max_results} diverse AI research papers for demo"
+            "message": f"Indexing up to {max_results} diverse AI research papers for demo",
         }
 
     except Exception as e:
         logger.error("Failed to start demo indexing", error=str(e))
-        raise HTTPException(status_code=500, detail=f"Failed to start indexing: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to start indexing: {str(e)}"
+        )
 
 
 @router.get("/jobs/{job_id}", response_model=Dict[str, Any])
@@ -317,12 +338,14 @@ async def download_paper(arxiv_id: str) -> Dict[str, Any]:
         path = arxiv_client.download_paper(arxiv_id)
 
         if not path:
-            raise HTTPException(status_code=404, detail=f"Failed to download paper {arxiv_id}")
+            raise HTTPException(
+                status_code=404, detail=f"Failed to download paper {arxiv_id}"
+            )
 
         return {
             "arxiv_id": arxiv_id,
             "path": path,
-            "message": "Paper downloaded successfully"
+            "message": "Paper downloaded successfully",
         }
 
     except HTTPException:

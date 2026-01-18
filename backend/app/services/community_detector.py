@@ -1,4 +1,5 @@
 """Community detection service for identifying research topics and clusters"""
+
 from typing import Any, Dict, List, Optional, Tuple
 from datetime import datetime
 import asyncio
@@ -18,9 +19,7 @@ class CommunityDetector:
         self.neo4j_client = Neo4jClient()
 
     async def detect_communities(
-        self,
-        algorithm: str = "louvain",
-        min_community_size: int = 3
+        self, algorithm: str = "louvain", min_community_size: int = 3
     ) -> Dict[str, Any]:
         """
         Detect communities in the entity graph
@@ -43,7 +42,9 @@ class CommunityDetector:
             communities = await self._run_community_algorithm(graph_name, algorithm)
 
             # Step 3: Filter small communities
-            filtered_communities = self._filter_communities(communities, min_community_size)
+            filtered_communities = self._filter_communities(
+                communities, min_community_size
+            )
 
             # Step 4: Enrich communities with metadata
             enriched_communities = await self._enrich_communities(filtered_communities)
@@ -62,7 +63,7 @@ class CommunityDetector:
                 "total_entities": sum(c["size"] for c in enriched_communities),
                 "algorithm": algorithm,
                 "communities": enriched_communities,
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat(),
             }
 
             self.logger.info(f"Detected {len(enriched_communities)} communities")
@@ -121,9 +122,7 @@ class CommunityDetector:
             pass  # Ignore if doesn't exist
 
     async def _run_community_algorithm(
-        self,
-        graph_name: str,
-        algorithm: str
+        self, graph_name: str, algorithm: str
     ) -> List[Dict[str, Any]]:
         """Run community detection algorithm"""
 
@@ -169,11 +168,13 @@ class CommunityDetector:
             communities = []
 
             for record in results:
-                communities.append({
-                    "id": f"community_{record['communityId']}",
-                    "members": record["members"],
-                    "size": len(record["members"])
-                })
+                communities.append(
+                    {
+                        "id": f"community_{record['communityId']}",
+                        "members": record["members"],
+                        "size": len(record["members"]),
+                    }
+                )
 
             return communities
         except Exception as e:
@@ -199,20 +200,20 @@ class CommunityDetector:
         communities = []
 
         for i, record in enumerate(results):
-            communities.append({
-                "id": f"community_{i}",
-                "members": record["members"],
-                "size": len(record["members"]),
-                "type_based": True,
-                "primary_type": record["communityId"]
-            })
+            communities.append(
+                {
+                    "id": f"community_{i}",
+                    "members": record["members"],
+                    "size": len(record["members"]),
+                    "type_based": True,
+                    "primary_type": record["communityId"],
+                }
+            )
 
         return communities
 
     def _filter_communities(
-        self,
-        communities: List[Dict[str, Any]],
-        min_size: int
+        self, communities: List[Dict[str, Any]], min_size: int
     ) -> List[Dict[str, Any]]:
         """Filter out small communities"""
         filtered = [c for c in communities if c["size"] >= min_size]
@@ -223,8 +224,7 @@ class CommunityDetector:
         return filtered
 
     async def _enrich_communities(
-        self,
-        communities: List[Dict[str, Any]]
+        self, communities: List[Dict[str, Any]]
     ) -> List[Dict[str, Any]]:
         """Enrich communities with additional metadata"""
 
@@ -253,31 +253,27 @@ class CommunityDetector:
             """
 
             papers = self.neo4j_client.execute_query(
-                query,
-                {"entityNames": entity_names}
+                query, {"entityNames": entity_names}
             )
 
             # Determine primary topic based on most common entity types and names
             primary_entities = sorted(
-                entity_names,
-                key=lambda x: entity_names.count(x),
-                reverse=True
+                entity_names, key=lambda x: entity_names.count(x), reverse=True
             )[:5]
 
-            enriched.append({
-                **community,
-                "primary_entities": primary_entities,
-                "entity_types": type_counts,
-                "top_papers": papers[:5] if papers else [],
-                "paper_count": len(papers) if papers else 0
-            })
+            enriched.append(
+                {
+                    **community,
+                    "primary_entities": primary_entities,
+                    "entity_types": type_counts,
+                    "top_papers": papers[:5] if papers else [],
+                    "paper_count": len(papers) if papers else 0,
+                }
+            )
 
         return enriched
 
-    async def _generate_community_summaries(
-        self,
-        communities: List[Dict[str, Any]]
-    ):
+    async def _generate_community_summaries(self, communities: List[Dict[str, Any]]):
         """Generate LLM summaries for each community"""
 
         from app.services.entity_extractor import EntityExtractor
@@ -310,7 +306,7 @@ Summary:"""
                     model=settings.OPENAI_MODEL,
                     messages=[{"role": "user", "content": prompt}],
                     max_tokens=200,
-                    temperature=0.7
+                    temperature=0.7,
                 )
 
                 summary = response.choices[0].message.content.strip()
@@ -331,7 +327,7 @@ Name:"""
                     model=settings.OPENAI_MODEL,
                     messages=[{"role": "user", "content": name_prompt}],
                     max_tokens=20,
-                    temperature=0.5
+                    temperature=0.5,
                 )
 
                 name = name_response.choices[0].message.content.strip().strip('"')
@@ -342,8 +338,12 @@ Name:"""
             except Exception as e:
                 self.logger.error(f"Failed to generate summary: {str(e)}")
                 # Fallback to simple name
-                community["name"] = f"Research Topic: {community['primary_entities'][0]}"
-                community["summary"] = f"Research community focused on {', '.join(community['primary_entities'][:3])}"
+                community["name"] = (
+                    f"Research Topic: {community['primary_entities'][0]}"
+                )
+                community["summary"] = (
+                    f"Research community focused on {', '.join(community['primary_entities'][:3])}"
+                )
 
     async def _store_communities(self, communities: List[Dict[str, Any]]):
         """Store community information in Neo4j"""
@@ -361,14 +361,17 @@ Name:"""
             RETURN c
             """
 
-            self.neo4j_client.execute_query(create_query, {
-                "id": community["id"],
-                "name": community.get("name", "Unnamed Community"),
-                "summary": community.get("summary", ""),
-                "size": community["size"],
-                "paperCount": community.get("paper_count", 0),
-                "entityTypes": str(community.get("entity_types", {}))
-            })
+            self.neo4j_client.execute_query(
+                create_query,
+                {
+                    "id": community["id"],
+                    "name": community.get("name", "Unnamed Community"),
+                    "summary": community.get("summary", ""),
+                    "size": community["size"],
+                    "paperCount": community.get("paper_count", 0),
+                    "entityTypes": str(community.get("entity_types", {})),
+                },
+            )
 
             # Link entities to community
             link_query = """
@@ -379,10 +382,10 @@ Name:"""
             """
 
             entity_names = [m["name"] for m in community["members"]]
-            self.neo4j_client.execute_query(link_query, {
-                "communityId": community["id"],
-                "entityNames": entity_names
-            })
+            self.neo4j_client.execute_query(
+                link_query,
+                {"communityId": community["id"], "entityNames": entity_names},
+            )
 
         self.logger.info(f"Stored {len(communities)} communities in graph")
 
@@ -406,18 +409,22 @@ Name:"""
 
         communities = []
         for record in results:
-            communities.append({
-                "id": record["id"],
-                "name": record["name"],
-                "summary": record["summary"],
-                "size": record["size"],
-                "paper_count": record.get("paperCount", 0),
-                "top_entities": record.get("topEntities", [])
-            })
+            communities.append(
+                {
+                    "id": record["id"],
+                    "name": record["name"],
+                    "summary": record["summary"],
+                    "size": record["size"],
+                    "paper_count": record.get("paperCount", 0),
+                    "top_entities": record.get("topEntities", []),
+                }
+            )
 
         return communities
 
-    async def get_community_details(self, community_id: str) -> Optional[Dict[str, Any]]:
+    async def get_community_details(
+        self, community_id: str
+    ) -> Optional[Dict[str, Any]]:
         """Get detailed information about a specific community"""
 
         query = """
@@ -451,7 +458,7 @@ Name:"""
             "summary": record["summary"],
             "size": record["size"],
             "entities": record["entities"],
-            "papers": record.get("topPapers", [])
+            "papers": record.get("topPapers", []),
         }
 
 
@@ -460,8 +467,7 @@ community_detector = CommunityDetector()
 
 
 async def detect_research_communities(
-    algorithm: str = "louvain",
-    min_size: int = 3
+    algorithm: str = "louvain", min_size: int = 3
 ) -> Dict[str, Any]:
     """Detect research communities in the knowledge graph"""
     return await community_detector.detect_communities(algorithm, min_size)

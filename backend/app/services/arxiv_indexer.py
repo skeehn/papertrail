@@ -1,4 +1,5 @@
 """Batch indexing service for arXiv papers"""
+
 import asyncio
 import os
 from typing import Any, Dict, List, Optional
@@ -17,6 +18,7 @@ from app.database.neo4j_client import Neo4jClient
 
 class ProcessingStatus(str, Enum):
     """Status of paper processing"""
+
     PENDING = "pending"
     DOWNLOADING = "downloading"
     PROCESSING_PDF = "processing_pdf"
@@ -38,9 +40,7 @@ class BatchIndexer:
         self.jobs = {}  # Store job status
 
     async def index_papers_by_ids(
-        self,
-        arxiv_ids: List[str],
-        job_id: Optional[str] = None
+        self, arxiv_ids: List[str], job_id: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Index multiple papers by their arXiv IDs
@@ -65,10 +65,12 @@ class BatchIndexer:
             "status": "running",
             "papers": {},
             "started_at": datetime.now().isoformat(),
-            "errors": []
+            "errors": [],
         }
 
-        self.logger.info("Starting batch indexing job", job_id=job_id, total=len(arxiv_ids))
+        self.logger.info(
+            "Starting batch indexing job", job_id=job_id, total=len(arxiv_ids)
+        )
 
         # Process papers with controlled concurrency
         semaphore = asyncio.Semaphore(settings.MAX_CONCURRENT_PROCESSES)
@@ -80,7 +82,7 @@ class BatchIndexer:
         # Process all papers
         results = await asyncio.gather(
             *[process_with_semaphore(arxiv_id) for arxiv_id in arxiv_ids],
-            return_exceptions=True
+            return_exceptions=True,
         )
 
         # Update job status
@@ -89,10 +91,9 @@ class BatchIndexer:
 
             if isinstance(result, Exception):
                 self.jobs[job_id]["failed"] += 1
-                self.jobs[job_id]["errors"].append({
-                    "arxiv_id": arxiv_id,
-                    "error": str(result)
-                })
+                self.jobs[job_id]["errors"].append(
+                    {"arxiv_id": arxiv_id, "error": str(result)}
+                )
             elif result and result.get("status") == "completed":
                 self.jobs[job_id]["successful"] += 1
             else:
@@ -105,21 +106,17 @@ class BatchIndexer:
             "Batch indexing job completed",
             job_id=job_id,
             successful=self.jobs[job_id]["successful"],
-            failed=self.jobs[job_id]["failed"]
+            failed=self.jobs[job_id]["failed"],
         )
 
         return self.jobs[job_id]
 
-    async def _index_single_paper(
-        self,
-        arxiv_id: str,
-        job_id: str
-    ) -> Dict[str, Any]:
+    async def _index_single_paper(self, arxiv_id: str, job_id: str) -> Dict[str, Any]:
         """Index a single paper"""
         paper_status = {
             "arxiv_id": arxiv_id,
             "status": ProcessingStatus.PENDING,
-            "error": None
+            "error": None,
         }
 
         self.jobs[job_id]["papers"][arxiv_id] = paper_status
@@ -173,39 +170,43 @@ class BatchIndexer:
                     arxiv_id,
                     entity["name"],
                     "MENTIONS",
-                    {"confidence": entity.get("confidence", 0.5)}
+                    {"confidence": entity.get("confidence", 0.5)},
                 )
 
             # 6. Index in vector store
             paper_status["status"] = ProcessingStatus.INDEXING_VECTORS
 
             # Add paper abstract to vector store
-            documents = [{
-                "id": f"paper_{arxiv_id}",
-                "text": f"{paper_metadata['title']}. {paper_metadata['abstract']}",
-                "metadata": {
-                    "arxiv_id": arxiv_id,
-                    "type": "paper",
-                    "title": paper_metadata["title"],
-                    "authors": ",".join(paper_metadata["authors"][:3]),
-                    "published_date": paper_metadata["published_date"],
-                    "categories": ",".join(paper_metadata["categories"])
+            documents = [
+                {
+                    "id": f"paper_{arxiv_id}",
+                    "text": f"{paper_metadata['title']}. {paper_metadata['abstract']}",
+                    "metadata": {
+                        "arxiv_id": arxiv_id,
+                        "type": "paper",
+                        "title": paper_metadata["title"],
+                        "authors": ",".join(paper_metadata["authors"][:3]),
+                        "published_date": paper_metadata["published_date"],
+                        "categories": ",".join(paper_metadata["categories"]),
+                    },
                 }
-            }]
+            ]
 
             # Add high-confidence entities to vector store
             for entity in entities:
                 if entity.get("confidence", 0) > 0.7:
-                    documents.append({
-                        "id": f"entity_{arxiv_id}_{entity['name']}",
-                        "text": f"{entity['name']}: {entity.get('description', '')}",
-                        "metadata": {
-                            "arxiv_id": arxiv_id,
-                            "type": "entity",
-                            "entity_type": entity.get("type", "unknown"),
-                            "entity_name": entity["name"]
+                    documents.append(
+                        {
+                            "id": f"entity_{arxiv_id}_{entity['name']}",
+                            "text": f"{entity['name']}: {entity.get('description', '')}",
+                            "metadata": {
+                                "arxiv_id": arxiv_id,
+                                "type": "entity",
+                                "entity_type": entity.get("type", "unknown"),
+                                "entity_name": entity["name"],
+                            },
                         }
-                    })
+                    )
 
             # Add to Pinecone
             pinecone_store.add_documents(documents)
@@ -226,10 +227,7 @@ class BatchIndexer:
             return paper_status
 
     async def index_papers_by_query(
-        self,
-        query: str,
-        max_results: int = 50,
-        categories: Optional[List[str]] = None
+        self, query: str, max_results: int = 50, categories: Optional[List[str]] = None
     ) -> Dict[str, Any]:
         """
         Search arXiv and index results
@@ -252,7 +250,7 @@ class BatchIndexer:
                 "status": "completed",
                 "total_papers": 0,
                 "successful": 0,
-                "failed": 0
+                "failed": 0,
             }
 
         # Extract arXiv IDs
@@ -262,10 +260,7 @@ class BatchIndexer:
         return await self.index_papers_by_ids(arxiv_ids)
 
     async def index_trending_papers(
-        self,
-        categories: List[str],
-        days_back: int = 7,
-        max_results: int = 50
+        self, categories: List[str], days_back: int = 7, max_results: int = 50
     ) -> Dict[str, Any]:
         """
         Index trending papers from specific categories
@@ -279,9 +274,7 @@ class BatchIndexer:
             Job status dictionary
         """
         self.logger.info(
-            "Indexing trending papers",
-            categories=categories,
-            days_back=days_back
+            "Indexing trending papers", categories=categories, days_back=days_back
         )
 
         papers = arxiv_client.get_trending_papers(categories, days_back, max_results)
@@ -292,7 +285,7 @@ class BatchIndexer:
                 "status": "completed",
                 "total_papers": 0,
                 "successful": 0,
-                "failed": 0
+                "failed": 0,
             }
 
         arxiv_ids = [paper["arxiv_id"] for paper in papers]
@@ -306,17 +299,16 @@ class BatchIndexer:
         """Get all jobs"""
         return self.jobs
 
-    async def index_ai_research_papers(
-        self,
-        max_results: int = 100
-    ) -> Dict[str, Any]:
+    async def index_ai_research_papers(self, max_results: int = 100) -> Dict[str, Any]:
         """
         Index a diverse set of AI research papers for demo purposes
 
         Returns:
             Job status dictionary
         """
-        self.logger.info("Indexing AI research papers for demo", max_results=max_results)
+        self.logger.info(
+            "Indexing AI research papers for demo", max_results=max_results
+        )
 
         # Define diverse research topics
         topics = [
@@ -329,7 +321,7 @@ class BatchIndexer:
             "computer vision",
             "natural language processing",
             "multimodal learning",
-            "neural architecture search"
+            "neural architecture search",
         ]
 
         # Get papers per topic
@@ -341,7 +333,7 @@ class BatchIndexer:
             papers = arxiv_client.search_papers(
                 query=topic,
                 max_results=papers_per_topic,
-                categories=["cs.AI", "cs.LG", "cs.CL", "cs.CV"]
+                categories=["cs.AI", "cs.LG", "cs.CL", "cs.CV"],
             )
 
             for paper in papers:
@@ -365,10 +357,7 @@ async def index_arxiv_papers(arxiv_ids: List[str]) -> Dict[str, Any]:
     return await batch_indexer.index_papers_by_ids(arxiv_ids)
 
 
-async def index_papers_by_search(
-    query: str,
-    max_results: int = 50
-) -> Dict[str, Any]:
+async def index_papers_by_search(query: str, max_results: int = 50) -> Dict[str, Any]:
     """Search and index papers"""
     return await batch_indexer.index_papers_by_query(query, max_results)
 

@@ -6,7 +6,7 @@ import sys
 import os
 
 # Add parent directory to path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from app.core.config import settings
 from app.core.logging import get_logger
@@ -28,8 +28,7 @@ def test_neo4j():
         logger.info(f"Database: {settings.NEO4J_DATABASE}")
 
         driver = GraphDatabase.driver(
-            settings.NEO4J_URI,
-            auth=(settings.NEO4J_USER, settings.NEO4J_PASSWORD)
+            settings.NEO4J_URI, auth=(settings.NEO4J_USER, settings.NEO4J_PASSWORD)
         )
 
         driver.verify_connectivity()
@@ -48,6 +47,7 @@ def test_neo4j():
     except Exception as e:
         logger.error(f"✗ Neo4j connection failed: {str(e)}")
         import traceback
+
         traceback.print_exc()
         logger.info("")
         return False
@@ -77,9 +77,12 @@ def test_openrouter():
         response = client.chat.completions.create(
             model=settings.OPENAI_MODEL,
             messages=[
-                {"role": "user", "content": "Say 'Hello from OpenRouter!' in exactly those words."}
+                {
+                    "role": "user",
+                    "content": "Say 'Hello from OpenRouter!' in exactly those words.",
+                }
             ],
-            max_tokens=50
+            max_tokens=50,
         )
 
         message = response.choices[0].message.content
@@ -90,6 +93,7 @@ def test_openrouter():
     except Exception as e:
         logger.error(f"✗ OpenRouter connection failed: {str(e)}")
         import traceback
+
         traceback.print_exc()
         logger.info("")
         return False

@@ -24,5 +24,7 @@ api_router.include_router(memories.router, prefix="/memories", tags=["memories"]
 api_router.include_router(search.router, prefix="/search", tags=["search"])
 api_router.include_router(web_search.router, prefix="/web-search", tags=["web-search"])
 api_router.include_router(arxiv.router, prefix="/arxiv", tags=["arxiv"])
-api_router.include_router(communities.router, prefix="/communities", tags=["communities"])
+api_router.include_router(
+    communities.router, prefix="/communities", tags=["communities"]
+)
 api_router.include_router(insights.router, prefix="/insights", tags=["insights"])

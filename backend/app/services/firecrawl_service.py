@@ -1,8 +1,10 @@
 """Firecrawl service for web scraping and search"""
+
 from typing import Any, Dict, List, Optional
 
 try:
     from firecrawl import Firecrawl
+
     FIRECRAWL_AVAILABLE = True
 except ImportError:
     Firecrawl = None
@@ -36,9 +38,7 @@ class FirecrawlService:
             self.app = None
 
     def scrape_url(
-        self,
-        url: str,
-        formats: Optional[List[str]] = None
+        self, url: str, formats: Optional[List[str]] = None
     ) -> Optional[Dict[str, Any]]:
         """
         Scrape a single URL
@@ -57,7 +57,7 @@ class FirecrawlService:
         try:
             # Default to markdown format
             if not formats:
-                formats = ['markdown']
+                formats = ["markdown"]
 
             result = self.app.scrape(url, formats=formats)
 
@@ -78,25 +78,17 @@ class FirecrawlService:
         Returns:
             Scraped paper content with metadata
         """
-        result = self.scrape_url(url, formats=['markdown'])
+        result = self.scrape_url(url, formats=["markdown"])
 
         if not result:
             return None
 
         # Extract content
-        content = result.get('markdown', result.get('content', ''))
+        content = result.get("markdown", result.get("content", ""))
 
-        return {
-            "url": url,
-            "content": content,
-            "metadata": result.get('metadata', {})
-        }
+        return {"url": url, "content": content, "metadata": result.get("metadata", {})}
 
-    def search_web(
-        self,
-        query: str,
-        limit: int = 10
-    ) -> List[Dict[str, Any]]:
+    def search_web(self, query: str, limit: int = 10) -> List[Dict[str, Any]]:
         """
         Search the web using Firecrawl
 
@@ -122,9 +114,7 @@ class FirecrawlService:
             return []
 
     def search_research_papers(
-        self,
-        query: str,
-        limit: int = 10
+        self, query: str, limit: int = 10
     ) -> List[Dict[str, Any]]:
         """
         Search for research papers on the web
@@ -142,10 +132,7 @@ class FirecrawlService:
         return self.search_web(enhanced_query, limit)
 
     def crawl_website(
-        self,
-        url: str,
-        max_depth: int = 2,
-        limit: int = 100
+        self, url: str, max_depth: int = 2, limit: int = 100
     ) -> List[Dict[str, Any]]:
         """
         Crawl a website starting from a URL
@@ -163,13 +150,9 @@ class FirecrawlService:
             return []
 
         try:
-            result = self.app.crawl(
-                url,
-                max_depth=max_depth,
-                limit=limit
-            )
+            result = self.app.crawl(url, max_depth=max_depth, limit=limit)
 
-            pages = result.get('data', [])
+            pages = result.get("data", [])
 
             self.logger.info("Website crawled", url=url, pages=len(pages))
             return pages
@@ -178,10 +161,7 @@ class FirecrawlService:
             self.logger.error("Crawl failed", url=url, error=str(e))
             return []
 
-    def map_website(
-        self,
-        url: str
-    ) -> Optional[Dict[str, Any]]:
+    def map_website(self, url: str) -> Optional[Dict[str, Any]]:
         """
         Map a website's structure
 
@@ -222,17 +202,17 @@ class FirecrawlService:
 
         # Try to extract metadata from content
         # This is a simple implementation - could be enhanced with LLM
-        text = content.get('content', '')
-        metadata = content.get('metadata', {})
+        text = content.get("content", "")
+        metadata = content.get("metadata", {})
 
         # Extract title from metadata or content
-        title = metadata.get('title', '')
+        title = metadata.get("title", "")
         if not title and text:
             # Try to find title in first few lines
-            lines = text.split('\n')
+            lines = text.split("\n")
             for line in lines[:10]:
                 if len(line) > 20 and len(line) < 200:
-                    title = line.strip('#').strip()
+                    title = line.strip("#").strip()
                     break
 
         return {
@@ -240,7 +220,7 @@ class FirecrawlService:
             "title": title,
             "content": text[:5000],  # First 5000 chars
             "full_content": text,
-            "metadata": metadata
+            "metadata": metadata,
         }
 
 

@@ -20,7 +20,7 @@ import sys
 import os
 
 # Add parent directory to path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from app.services.arxiv_indexer import batch_indexer
 from app.database.pinecone_store import init_pinecone
@@ -50,10 +50,10 @@ INFLUENTIAL_PAPERS = [
     "1706.03762",  # Attention is All You Need (Transformers)
     "1810.04805",  # BERT
     "2005.14165",  # GPT-3
-    "1312.6114",   # Adam Optimizer
-    "1412.6980",   # Distilling the Knowledge in a Neural Network
+    "1312.6114",  # Adam Optimizer
+    "1412.6980",  # Distilling the Knowledge in a Neural Network
     "2103.00020",  # CLIP
-    "1409.1556",   # Neural Machine Translation
+    "1409.1556",  # Neural Machine Translation
     "1512.03385",  # ResNet
     "1903.12261",  # XLNet
     "2010.11929",  # ViT (Vision Transformer)
@@ -64,7 +64,7 @@ async def index_demo_papers(
     max_papers: int = 100,
     topics: list = None,
     include_influential: bool = True,
-    categories: list = None
+    categories: list = None,
 ):
     """
     Index demo papers for Papertrail
@@ -107,7 +107,7 @@ async def index_demo_papers(
         logger.info(
             f"Searching for papers",
             topics=len(search_topics),
-            papers_per_topic=papers_per_topic
+            papers_per_topic=papers_per_topic,
         )
 
         # Search for papers on each topic
@@ -120,7 +120,7 @@ async def index_demo_papers(
                     query=topic,
                     max_results=papers_per_topic,
                     categories=categories,
-                    sort_by="relevance"
+                    sort_by="relevance",
                 )
 
                 for paper in papers:
@@ -148,9 +148,9 @@ async def index_demo_papers(
     logger.info(f"Successful: {result['successful']}")
     logger.info(f"Failed: {result['failed']}")
 
-    if result['errors']:
+    if result["errors"]:
         logger.info(f"Errors: {len(result['errors'])}")
-        for error in result['errors'][:5]:  # Show first 5 errors
+        for error in result["errors"][:5]:  # Show first 5 errors
             logger.error(f"  - {error['arxiv_id']}: {error['error']}")
 
     logger.info("=" * 60)
@@ -169,9 +169,7 @@ async def quick_demo(max_papers: int = 20):
     ]
 
     return await index_demo_papers(
-        max_papers=max_papers,
-        topics=quick_topics,
-        include_influential=True
+        max_papers=max_papers, topics=quick_topics, include_influential=True
     )
 
 
@@ -184,31 +182,29 @@ def main():
         "--max-papers",
         type=int,
         default=100,
-        help="Maximum number of papers to index (default: 100)"
+        help="Maximum number of papers to index (default: 100)",
     )
 
     parser.add_argument(
         "--topics",
         nargs="+",
-        help="Specific topics to search for (default: diverse AI topics)"
+        help="Specific topics to search for (default: diverse AI topics)",
     )
 
     parser.add_argument(
         "--categories",
         nargs="+",
-        help="arXiv categories to filter by (default: cs.AI, cs.LG, cs.CL, cs.CV, stat.ML)"
+        help="arXiv categories to filter by (default: cs.AI, cs.LG, cs.CL, cs.CV, stat.ML)",
     )
 
     parser.add_argument(
         "--quick",
         action="store_true",
-        help="Quick mode: index only 20 papers on popular topics"
+        help="Quick mode: index only 20 papers on popular topics",
     )
 
     parser.add_argument(
-        "--no-influential",
-        action="store_true",
-        help="Don't include influential papers"
+        "--no-influential", action="store_true", help="Don't include influential papers"
     )
 
     args = parser.parse_args()
@@ -218,15 +214,17 @@ def main():
         if args.quick:
             result = asyncio.run(quick_demo(max_papers=20))
         else:
-            result = asyncio.run(index_demo_papers(
-                max_papers=args.max_papers,
-                topics=args.topics,
-                include_influential=not args.no_influential,
-                categories=args.categories
-            ))
+            result = asyncio.run(
+                index_demo_papers(
+                    max_papers=args.max_papers,
+                    topics=args.topics,
+                    include_influential=not args.no_influential,
+                    categories=args.categories,
+                )
+            )
 
         # Exit with status code based on results
-        if result['successful'] > 0:
+        if result["successful"] > 0:
             logger.info("✓ Indexing completed successfully!")
             sys.exit(0)
         else:

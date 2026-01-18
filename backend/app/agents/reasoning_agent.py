@@ -1,4 +1,5 @@
 """Multi-hop reasoning agent for complex research queries"""
+
 from typing import Any, Dict, List, Optional, Tuple
 from dataclasses import dataclass
 import asyncio
@@ -16,6 +17,7 @@ logger = get_logger("reasoning_agent")
 @dataclass
 class ReasoningStep:
     """A single step in multi-hop reasoning"""
+
     step_number: int
     question: str
     method: str  # "graph", "vector", "llm"
@@ -35,9 +37,7 @@ class ReasoningAgent(BaseAgent):
         self.max_results_per_hop = 10
 
     async def answer_complex_query(
-        self,
-        query: str,
-        context: Optional[Dict[str, Any]] = None
+        self, query: str, context: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """
         Answer a complex query using multi-hop reasoning
@@ -61,18 +61,14 @@ class ReasoningAgent(BaseAgent):
 
             for i, sub_q in enumerate(sub_questions, 1):
                 step = await self._execute_reasoning_step(
-                    step_number=i,
-                    question=sub_q,
-                    context=accumulated_context
+                    step_number=i, question=sub_q, context=accumulated_context
                 )
                 reasoning_steps.append(step)
                 accumulated_context.extend(step.results)
 
             # Step 3: Synthesize final answer
             final_answer = await self._synthesize_answer(
-                query,
-                reasoning_steps,
-                accumulated_context
+                query, reasoning_steps, accumulated_context
             )
 
             return {
@@ -85,12 +81,12 @@ class ReasoningAgent(BaseAgent):
                         "question": s.question,
                         "method": s.method,
                         "answer": s.answer,
-                        "evidence_count": len(s.results)
+                        "evidence_count": len(s.results),
                     }
                     for s in reasoning_steps
                 ],
                 "sources": final_answer["sources"],
-                "reasoning_path": [s.question for s in reasoning_steps]
+                "reasoning_path": [s.question for s in reasoning_steps],
             }
 
         except Exception as e:
@@ -122,19 +118,19 @@ Sub-questions:"""
             model=self.model,
             messages=[{"role": "user", "content": prompt}],
             max_tokens=300,
-            temperature=0.7
+            temperature=0.7,
         )
 
         # Parse sub-questions
         content = response.choices[0].message.content.strip()
         sub_questions = []
 
-        for line in content.split('\n'):
+        for line in content.split("\n"):
             line = line.strip()
-            if line and (line[0].isdigit() or line.startswith('-')):
+            if line and (line[0].isdigit() or line.startswith("-")):
                 # Remove numbering
-                question = line.split('.', 1)[-1].strip()
-                question = question.lstrip('- ')
+                question = line.split(".", 1)[-1].strip()
+                question = question.lstrip("- ")
                 if question:
                     sub_questions.append(question)
 
@@ -146,10 +142,7 @@ Sub-questions:"""
         return sub_questions[:4]  # Max 4 steps
 
     async def _execute_reasoning_step(
-        self,
-        step_number: int,
-        question: str,
-        context: List[Dict[str, Any]]
+        self, step_number: int, question: str, context: List[Dict[str, Any]]
     ) -> ReasoningStep:
         """Execute a single reasoning step"""
 
@@ -176,7 +169,7 @@ Sub-questions:"""
             query=question,
             results=results,
             answer=answer["text"],
-            confidence=answer["confidence"]
+            confidence=answer["confidence"],
         )
 
     async def _select_method(self, question: str) -> str:
@@ -186,25 +179,33 @@ Sub-questions:"""
         question_lower = question.lower()
 
         # Graph search for relationship queries
-        if any(word in question_lower for word in [
-            "related", "connected", "uses", "implements", "extends",
-            "relationship", "connection", "link"
-        ]):
+        if any(
+            word in question_lower
+            for word in [
+                "related",
+                "connected",
+                "uses",
+                "implements",
+                "extends",
+                "relationship",
+                "connection",
+                "link",
+            ]
+        ):
             return "graph"
 
         # Vector search for similarity/finding queries
-        if any(word in question_lower for word in [
-            "similar", "like", "find", "papers about", "research on"
-        ]):
+        if any(
+            word in question_lower
+            for word in ["similar", "like", "find", "papers about", "research on"]
+        ):
             return "vector"
 
         # Default to graph for most queries
         return "graph"
 
     async def _graph_search(
-        self,
-        question: str,
-        context: List[Dict[str, Any]]
+        self, question: str, context: List[Dict[str, Any]]
     ) -> List[Dict[str, Any]]:
         """Search using graph traversal"""
 
@@ -233,17 +234,14 @@ Sub-questions:"""
         LIMIT $limit
         """
 
-        results = self.neo4j_client.execute_query(query, {
-            "entityNames": entities,
-            "limit": self.max_results_per_hop
-        })
+        results = self.neo4j_client.execute_query(
+            query, {"entityNames": entities, "limit": self.max_results_per_hop}
+        )
 
         return results if results else []
 
     async def _vector_search(
-        self,
-        question: str,
-        context: List[Dict[str, Any]]
+        self, question: str, context: List[Dict[str, Any]]
     ) -> List[Dict[str, Any]]:
         """Search using vector similarity"""
 
@@ -255,17 +253,17 @@ Sub-questions:"""
             return []
 
     async def _llm_reasoning(
-        self,
-        question: str,
-        context: List[Dict[str, Any]]
+        self, question: str, context: List[Dict[str, Any]]
     ) -> List[Dict[str, Any]]:
         """Use LLM for reasoning when graph/vector search insufficient"""
 
         # Format context
-        context_text = "\n".join([
-            f"- {item.get('text', item.get('title', str(item)))}"
-            for item in context[:5]
-        ])
+        context_text = "\n".join(
+            [
+                f"- {item.get('text', item.get('title', str(item)))}"
+                for item in context[:5]
+            ]
+        )
 
         prompt = f"""Based on the research context below, answer this question:
 
@@ -279,16 +277,12 @@ Provide a concise, factual answer based on the context."""
         response = await self.client.chat.completions.create(
             model=self.model,
             messages=[{"role": "user", "content": prompt}],
-            max_tokens=300
+            max_tokens=300,
         )
 
         answer_text = response.choices[0].message.content.strip()
 
-        return [{
-            "source": "llm_reasoning",
-            "text": answer_text,
-            "method": "synthesis"
-        }]
+        return [{"source": "llm_reasoning", "text": answer_text, "method": "synthesis"}]
 
     async def _extract_entities_from_text(self, text: str) -> List[str]:
         """Extract entity names from text using simple pattern matching"""
@@ -310,14 +304,14 @@ Provide a concise, factual answer based on the context."""
         self,
         question: str,
         results: List[Dict[str, Any]],
-        context: List[Dict[str, Any]]
+        context: List[Dict[str, Any]],
     ) -> Dict[str, Any]:
         """Generate answer for a sub-question"""
 
         if not results:
             return {
                 "text": "Insufficient information to answer this question.",
-                "confidence": 0.0
+                "confidence": 0.0,
             }
 
         # Format results as context
@@ -336,7 +330,7 @@ Provide a concise, factual answer (1-2 sentences)."""
             model=self.model,
             messages=[{"role": "user", "content": prompt}],
             max_tokens=150,
-            temperature=0.5
+            temperature=0.5,
         )
 
         answer_text = response.choices[0].message.content.strip()
@@ -344,10 +338,7 @@ Provide a concise, factual answer (1-2 sentences)."""
         # Estimate confidence based on amount of evidence
         confidence = min(0.9, 0.5 + (len(results) * 0.1))
 
-        return {
-            "text": answer_text,
-            "confidence": confidence
-        }
+        return {"text": answer_text, "confidence": confidence}
 
     def _format_results_as_text(self, results: List[Dict[str, Any]]) -> str:
         """Format results into readable text"""
@@ -374,15 +365,17 @@ Provide a concise, factual answer (1-2 sentences)."""
         self,
         original_query: str,
         reasoning_steps: List[ReasoningStep],
-        all_evidence: List[Dict[str, Any]]
+        all_evidence: List[Dict[str, Any]],
     ) -> Dict[str, Any]:
         """Synthesize final answer from all reasoning steps"""
 
         # Format reasoning path
-        reasoning_text = "\n".join([
-            f"Step {s.step_number}: {s.question}\nAnswer: {s.answer}\n"
-            for s in reasoning_steps
-        ])
+        reasoning_text = "\n".join(
+            [
+                f"Step {s.step_number}: {s.question}\nAnswer: {s.answer}\n"
+                for s in reasoning_steps
+            ]
+        )
 
         prompt = f"""You are synthesizing a final answer to a complex research question.
 
@@ -405,7 +398,7 @@ Final Answer:"""
             model=self.model,
             messages=[{"role": "user", "content": prompt}],
             max_tokens=400,
-            temperature=0.6
+            temperature=0.6,
         )
 
         final_answer = response.choices[0].message.content.strip()
@@ -416,18 +409,22 @@ Final Answer:"""
             if "papers" in evidence:
                 for paper in evidence["papers"]:
                     if paper.get("arxiv_id"):
-                        sources.append({
-                            "arxiv_id": paper["arxiv_id"],
-                            "title": paper.get("title", "Unknown")
-                        })
+                        sources.append(
+                            {
+                                "arxiv_id": paper["arxiv_id"],
+                                "title": paper.get("title", "Unknown"),
+                            }
+                        )
 
         # Calculate overall confidence
-        avg_confidence = sum(s.confidence for s in reasoning_steps) / len(reasoning_steps)
+        avg_confidence = sum(s.confidence for s in reasoning_steps) / len(
+            reasoning_steps
+        )
 
         return {
             "answer": final_answer,
             "confidence": avg_confidence,
-            "sources": sources[:10]  # Top 10 sources
+            "sources": sources[:10],  # Top 10 sources
         }
 
 
@@ -436,8 +433,7 @@ reasoning_agent = ReasoningAgent()
 
 
 async def answer_complex_query(
-    query: str,
-    context: Optional[Dict[str, Any]] = None
+    query: str, context: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
     """Answer a complex query using multi-hop reasoning"""
     return await reasoning_agent.answer_complex_query(query, context)

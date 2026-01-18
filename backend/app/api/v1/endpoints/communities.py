@@ -1,4 +1,5 @@
 """Community detection API endpoints"""
+
 from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -7,7 +8,7 @@ from app.services.community_detector import (
     community_detector,
     detect_research_communities,
     get_all_communities,
-    get_community_by_id
+    get_community_by_id,
 )
 from app.core.logging import get_logger
 
@@ -18,12 +19,18 @@ logger = get_logger("communities_api")
 # Request/Response Models
 class CommunityDetectionRequest(BaseModel):
     """Request model for community detection"""
-    algorithm: str = Field(default="louvain", description="Algorithm (louvain, label_propagation, wcc)")
-    min_community_size: int = Field(default=3, ge=2, le=50, description="Minimum community size")
+
+    algorithm: str = Field(
+        default="louvain", description="Algorithm (louvain, label_propagation, wcc)"
+    )
+    min_community_size: int = Field(
+        default=3, ge=2, le=50, description="Minimum community size"
+    )
 
 
 class CommunityResponse(BaseModel):
     """Response model for community"""
+
     id: str
     name: str
     summary: str
@@ -34,10 +41,10 @@ class CommunityResponse(BaseModel):
 
 # Endpoints
 
+
 @router.post("/detect", response_model=Dict[str, Any])
 async def detect_communities(
-    request: CommunityDetectionRequest,
-    background_tasks: BackgroundTasks
+    request: CommunityDetectionRequest, background_tasks: BackgroundTasks
 ) -> Dict[str, Any]:
     """
     Detect research communities in the knowledge graph
@@ -51,8 +58,7 @@ async def detect_communities(
     """
     try:
         result = await detect_research_communities(
-            algorithm=request.algorithm,
-            min_size=request.min_community_size
+            algorithm=request.algorithm, min_size=request.min_community_size
         )
 
         logger.info(f"Detected {result['total_communities']} communities")
@@ -92,7 +98,9 @@ async def get_community(community_id: str) -> Dict[str, Any]:
         community = await get_community_by_id(community_id)
 
         if not community:
-            raise HTTPException(status_code=404, detail=f"Community {community_id} not found")
+            raise HTTPException(
+                status_code=404, detail=f"Community {community_id} not found"
+            )
 
         return community
 
@@ -105,8 +113,7 @@ async def get_community(community_id: str) -> Dict[str, Any]:
 
 @router.get("/{community_id}/papers", response_model=List[Dict[str, Any]])
 async def get_community_papers(
-    community_id: str,
-    limit: int = Query(default=20, ge=1, le=100)
+    community_id: str, limit: int = Query(default=20, ge=1, le=100)
 ) -> List[Dict[str, Any]]:
     """
     Get papers related to a community
@@ -120,12 +127,16 @@ async def get_community_papers(
         community = await get_community_by_id(community_id)
 
         if not community:
-            raise HTTPException(status_code=404, detail=f"Community {community_id} not found")
+            raise HTTPException(
+                status_code=404, detail=f"Community {community_id} not found"
+            )
 
         return community.get("papers", [])[:limit]
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to fetch papers for community {community_id}", error=str(e))
+        logger.error(
+            f"Failed to fetch papers for community {community_id}", error=str(e)
+        )
         raise HTTPException(status_code=500, detail=f"Failed to fetch: {str(e)}")

@@ -12,7 +12,7 @@ import sys
 import os
 
 # Add parent directory to path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from app.core.logging import get_logger
 
@@ -86,14 +86,13 @@ def test_pinecone_store():
 
         # Test add document
         logger.info("2. Testing document add...")
-        test_docs = [{
-            "id": "test_doc_1",
-            "text": "This is a test document about transformers and attention mechanisms in deep learning.",
-            "metadata": {
-                "type": "test",
-                "topic": "transformers"
+        test_docs = [
+            {
+                "id": "test_doc_1",
+                "text": "This is a test document about transformers and attention mechanisms in deep learning.",
+                "metadata": {"type": "test", "topic": "transformers"},
             }
-        }]
+        ]
 
         pinecone_store.add_documents(test_docs)
         logger.info("✓ Document added successfully")
@@ -120,6 +119,7 @@ def test_pinecone_store():
     except Exception as e:
         logger.error(f"✗ Pinecone test failed: {str(e)}\n")
         import traceback
+
         traceback.print_exc()
         return False
 

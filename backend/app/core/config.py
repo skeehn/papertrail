@@ -45,7 +45,9 @@ class Settings(BaseSettings):
 
     # AI Services
     OPENAI_API_KEY: str = Field(default="sk-placeholder-for-development")
-    OPENAI_BASE_URL: Optional[str] = Field(default=None)  # For OpenRouter or custom endpoints
+    OPENAI_BASE_URL: Optional[str] = Field(
+        default=None
+    )  # For OpenRouter or custom endpoints
     OPENAI_MODEL: str = Field(default="gpt-4-turbo-preview")
     OPENAI_MAX_TOKENS: int = Field(default=4000)
 
@@ -60,7 +62,9 @@ class Settings(BaseSettings):
 
     # Redis LangCache
     LANGCACHE_API_KEY: str = Field(default="")
-    LANGCACHE_SERVER_URL: str = Field(default="https://aws-us-east-1.langcache.redis.io")
+    LANGCACHE_SERVER_URL: str = Field(
+        default="https://aws-us-east-1.langcache.redis.io"
+    )
     LANGCACHE_CACHE_ID: str = Field(default="")
     LANGCACHE_ENABLED: bool = Field(default=True)
 

@@ -6,6 +6,7 @@ websockets>=11.0
 # Database and Vector Store
 neo4j>=5.0.0
 faiss-cpu>=1.7.0
+pinecone>=5.0.0
 numpy>=1.24.0
 pandas>=2.0.0
 
@@ -23,6 +24,7 @@ langgraph>=0.1.0
 transformers>=4.30.0
 torch>=2.0.0
 sentence-transformers>=2.2.0
+langcache>=0.1.0
 
 # Data Processing
 pydantic>=2.0.0
@@ -52,4 +54,6 @@ mypy>=1.0.0
 # Utilities
 python-dotenv>=1.0.0
 requests>=2.28.0
-tenacity>=8.0.0 
+tenacity>=8.0.0
+arxiv>=2.0.0
+firecrawl-py>=0.1.0 

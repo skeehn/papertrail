@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from app.api.v1.endpoints import (
     agents,
+    arxiv,
     entities,
     graph,
     memories,
@@ -20,3 +21,4 @@ api_router.include_router(graph.router, prefix="/graph", tags=["graph"])
 api_router.include_router(memories.router, prefix="/memories", tags=["memories"])
 api_router.include_router(search.router, prefix="/search", tags=["search"])
 api_router.include_router(web_search.router, prefix="/web-search", tags=["web-search"])
+api_router.include_router(arxiv.router, prefix="/arxiv", tags=["arxiv"])

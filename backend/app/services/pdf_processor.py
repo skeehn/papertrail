@@ -5,7 +5,21 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
-import fitz  # PyMuPDF
+try:
+    from pypdf import PdfReader
+except ImportError:
+    try:
+        from PyPDF2 import PdfReader
+    except ImportError:
+        PdfReader = None
+
+try:
+    import fitz
+    FITZ_AVAILABLE = True
+except ImportError:
+    fitz = None
+    FITZ_AVAILABLE = False
+
 import httpx
 import structlog
 
@@ -82,22 +96,30 @@ class PDFProcessor:
             if not os.path.exists(file_path):
                 raise FileNotFoundError(f"PDF file not found: {file_path}")
 
-            # Extract text and metadata from PDF
-            doc = fitz.open(file_path)
-
-            # Extract metadata
-            metadata = self._extract_metadata(doc)
-
-            # Extract full text
-            full_text = self._extract_full_text(doc)
-
-            # Extract sections
-            sections = self._extract_sections(doc)
-
-            # Extract citations
-            citations = self._extract_citations(full_text)
-
-            doc.close()
+            # Calculate page count before closing doc
+            if FITZ_AVAILABLE and fitz:
+                doc = fitz.open(file_path)
+                page_count = len(doc)
+                # Extract metadata
+                metadata = self._extract_metadata(doc)
+                # Extract full text
+                full_text = self._extract_full_text(doc)
+                # Extract sections
+                sections = self._extract_sections(doc)
+                # Extract citations
+                citations = self._extract_citations(full_text)
+                doc.close()
+            elif PdfReader:
+                # Fallback to PyPDF2/pypdf
+                with open(file_path, 'rb') as f:
+                    reader = PdfReader(f)
+                    page_count = len(reader.pages)
+                    metadata = self._extract_metadata_pypdf(reader)
+                    full_text = self._extract_full_text_pypdf(reader)
+                    sections = self._extract_sections_from_text(full_text)
+                    citations = self._extract_citations(full_text)
+            else:
+                raise RuntimeError("No PDF library available. Please install pypdf or PyMuPDF.")
 
             # Generate paper ID (use filename if no arXiv ID)
             paper_id = (
@@ -120,7 +142,7 @@ class PDFProcessor:
                 "updated_at": datetime.utcnow(),
                 "file_path": file_path,
                 "processing_stats": {
-                    "page_count": len(doc),
+                    "page_count": page_count,
                     "text_length": len(full_text),
                     "sections_found": len(sections),
                     "citations_found": len(citations),
@@ -130,7 +152,7 @@ class PDFProcessor:
             self.logger.info(
                 "PDF processing completed",
                 paper_id=paper_id,
-                page_count=len(doc),
+                page_count=page_count,
                 text_length=len(full_text),
             )
 
@@ -153,7 +175,7 @@ class PDFProcessor:
             # Download PDF from arXiv
             pdf_url = f"https://arxiv.org/pdf/{clean_arxiv_id}.pdf"
 
-            async with httpx.AsyncClient(timeout=30.0) as client:
+            async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
                 with tempfile.NamedTemporaryFile(
                     delete=False, suffix=".pdf"
                 ) as tmp_file:
@@ -354,8 +376,8 @@ class PDFProcessor:
     async def _fetch_arxiv_metadata(self, arxiv_id: str) -> Dict[str, Any]:
         """Fetch metadata from arXiv API"""
         try:
-            api_url = f"http://export.arxiv.org/api/query?id_list={arxiv_id}"
-            async with httpx.AsyncClient(timeout=10.0) as client:
+            api_url = f"https://export.arxiv.org/api/query?id_list={arxiv_id}"
+            async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
                 response = await client.get(api_url)
                 response.raise_for_status()
 

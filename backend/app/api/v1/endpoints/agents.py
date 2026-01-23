@@ -72,16 +72,12 @@ async def multi_agent_query(
             "multi_agent",
             "workflow_started",
             agents=request.agents,
-            workflow=request.workflow,
+            workflow=request.workflow or "sequential",
         )
 
-        # Initialize agent orchestrator
         orchestrator = AgentOrchestrator()
-
-        # Execute multi-agent workflow
         workflow_id = f"workflow_{int(time.time())}"
 
-        # Start background task for long-running workflows
         if request.workflow == "sequential":
             background_tasks.add_task(
                 orchestrator.execute_sequential_workflow,
@@ -95,13 +91,12 @@ async def multi_agent_query(
                 responses=[], workflow_id=workflow_id, total_processing_time=0.0
             )
         else:
-            # Execute immediately for simple workflows
             responses = await orchestrator.execute_workflow(
                 workflow_id=workflow_id,
                 query=request.query,
                 agents=request.agents,
                 paper_ids=request.paper_ids,
-                workflow_type=request.workflow,
+                workflow_type=request.workflow or "sequential",
             )
 
             processing_time = time.time() - start_time

@@ -22,6 +22,7 @@ class ArXivClient:
     """Client for interacting with arXiv API"""
 
     def __init__(self):
+        """Initialize ArXiv client"""
         self.logger = get_logger("arxiv_client")
         self.download_dir = settings.ARXIV_DOWNLOAD_DIR
         self.rate_limit = settings.ARXIV_RATE_LIMIT
@@ -32,8 +33,7 @@ class ArXivClient:
         os.makedirs(self.download_dir, exist_ok=True)
 
         if not ARXIV_AVAILABLE:
-            self.logger.error("ArXiv library not available")
-            raise RuntimeError("arxiv library not installed")
+            self.logger.warning("ArXiv library not installed - ArXiv features disabled")
 
     def _rate_limit_wait(self):
         """Enforce rate limiting between requests"""

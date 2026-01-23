@@ -30,7 +30,7 @@ class Neo4jClient:
         try:
             self._driver = GraphDatabase.driver(
                 settings.NEO4J_URI,
-                auth=(settings.NEO4J_USER, settings.NEO4J_PASSWORD),
+                auth=(settings.NEO4J_USERNAME, settings.NEO4J_PASSWORD),
                 max_connection_lifetime=3600,
                 max_connection_pool_size=50,
             )
@@ -100,9 +100,28 @@ class GraphOperations:
     """Graph database operations for PaperTrail"""
 
     @staticmethod
+    def _ensure_indexes(session: Session):
+        """Ensure indexes exist for optimal query performance"""
+        indexes = [
+            "CREATE INDEX paper_arxiv_id IF NOT EXISTS FOR (p:Paper) ON (p.arxiv_id)",
+            "CREATE INDEX entity_name IF NOT EXISTS FOR (e:Entity) ON (e.name)",
+            "CREATE INDEX entity_type IF NOT EXISTS FOR (e:Entity) ON (e.type)",
+            "CREATE INDEX paper_title IF NOT EXISTS FOR (p:Paper) ON (p.title)",
+        ]
+        
+        for index_query in indexes:
+            try:
+                session.run(index_query)
+            except Exception:
+                # Index might already exist or query syntax might differ
+                pass
+
+    @staticmethod
     @with_session
     def create_paper_node(session: Session, paper_data: Dict[str, Any]) -> str:
         """Create a paper node in the graph"""
+        GraphOperations._ensure_indexes(session)
+        
         query = """
         MERGE (p:Paper {arxiv_id: $arxiv_id})
         SET p += $properties
@@ -119,9 +138,12 @@ class GraphOperations:
             "created_at": paper_data.get("created_at"),
             "updated_at": paper_data.get("updated_at"),
         }
-
+        
+        arxiv_id_value = paper_data.get("arxiv_id") or paper_data.get("id")
+        if not arxiv_id_value:
+            raise ValueError("paper_data must contain either 'arxiv_id' or 'id'")
         result = session.run(
-            query, arxiv_id=paper_data["arxiv_id"], properties=properties
+            query, arxiv_id=arxiv_id_value, properties=properties
         )
         return result.single()["paper_id"]
 
@@ -205,37 +227,92 @@ class GraphOperations:
     @with_session
     def get_entity_subgraph(
         session: Session, entity_name: str, depth: int = 2
-    ) -> Dict[str, Any]:
-        """Get subgraph around an entity"""
+    ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+        """Get subgraph around an entity, returns (nodes, edges) - optimized with indexes"""
+        GraphOperations._ensure_indexes(session)
+        
+        # Optimized query using index on entity name
         query = """
-        MATCH path = (e:Entity {name: $entity_name})-[*1..$depth]-(related)
-        RETURN path
+        MATCH (e:Entity {name: $entity_name})
+        WITH e
+        MATCH path = (e)-[*1..$depth]-(related)
+        WITH path, e, related
+        UNWIND nodes(path) as node
+        UNWIND relationships(path) as rel
+        WITH DISTINCT node, rel, e, related
+        RETURN 
+            collect(DISTINCT {
+                id: coalesce(node.arxiv_id, node.name, toString(id(node))),
+                label: coalesce(node.title, node.name, node.arxiv_id, toString(id(node))),
+                type: labels(node)[0],
+                properties: properties(node)
+            }) as nodes,
+            collect(DISTINCT {
+                source: coalesce(startNode(rel).arxiv_id, startNode(rel).name, toString(id(startNode(rel)))),
+                target: coalesce(endNode(rel).arxiv_id, endNode(rel).name, toString(id(endNode(rel)))),
+                type: type(rel),
+                properties: properties(rel)
+            }) as edges
+        LIMIT 1000
         """
 
         result = session.run(query, entity_name=entity_name, depth=depth)
-        # Process path results into nodes and relationships
-        nodes = set()
-        relationships = set()
+        record = result.single()
+        
+        if not record:
+            # If no results, return at least the entity itself
+            query_entity = """
+            MATCH (e:Entity {name: $entity_name})
+            RETURN {
+                id: coalesce(e.arxiv_id, e.name, toString(id(e))),
+                label: coalesce(e.title, e.name, e.arxiv_id, toString(id(e))),
+                type: labels(e)[0],
+                properties: properties(e)
+            } as node
+            """
+            result_entity = session.run(query_entity, entity_name=entity_name)
+            entity_record = result_entity.single()
+            if entity_record:
+                return ([entity_record["node"]], [])
+            return ([], [])
 
-        for record in result:
-            path = record["path"]
-            for node in path.nodes:
-                nodes.add((node.labels[0], dict(node)))
-            for rel in path.relationships:
-                relationships.add((rel.type, dict(rel)))
-
-        return {"nodes": list(nodes), "relationships": list(relationships)}
+        nodes = record["nodes"] or []
+        edges = record["edges"] or []
+        
+        # Remove duplicates based on id
+        seen_nodes = {}
+        unique_nodes = []
+        for node in nodes:
+            node_id = node.get("id")
+            if node_id and node_id not in seen_nodes:
+                seen_nodes[node_id] = True
+                unique_nodes.append(node)
+        
+        # Remove duplicate edges
+        seen_edges = set()
+        unique_edges = []
+        for edge in edges:
+            edge_key = (edge.get("source"), edge.get("target"), edge.get("type"))
+            if edge_key not in seen_edges:
+                seen_edges.add(edge_key)
+                unique_edges.append(edge)
+        
+        return (unique_nodes, unique_edges)
 
     @staticmethod
     @with_session
     def search_entities(
         session: Session, query: str, entity_type: str = None, limit: int = 20
     ) -> List[Dict[str, Any]]:
-        """Search for entities by name"""
+        """Search for entities by name - optimized with index"""
+        GraphOperations._ensure_indexes(session)
+        
+        # Use index on entity name for faster searches
         if entity_type:
             query_text = """
             MATCH (e:Entity)
             WHERE e.name CONTAINS $query AND e.type = $entity_type
+            USING INDEX e:Entity(name)
             RETURN e.name as name, e.type as type, e.description as description
             ORDER BY e.name
             LIMIT $limit
@@ -247,6 +324,7 @@ class GraphOperations:
             query_text = """
             MATCH (e:Entity)
             WHERE e.name CONTAINS $query
+            USING INDEX e:Entity(name)
             RETURN e.name as name, e.type as type, e.description as description
             ORDER BY e.name
             LIMIT $limit
@@ -259,22 +337,22 @@ class GraphOperations:
     @with_session
     def get_graph_statistics(session: Session) -> Dict[str, Any]:
         """Get graph statistics"""
-        query = """
+        node_query = """
         MATCH (n)
-        RETURN labels(n)[0] as node_type, count(n) as count
-        UNION
-        MATCH ()-[r]->()
-        RETURN type(r) as relationship_type, count(r) as count
+        RETURN labels(n)[0] as type, count(n) as count
         """
-
-        result = session.run(query)
+        node_result = session.run(node_query)
         stats = {"nodes": {}, "relationships": {}}
+        for record in node_result:
+            stats["nodes"][record["type"] or "Node"] = record["count"]
 
-        for record in result:
-            if "node_type" in record:
-                stats["nodes"][record["node_type"]] = record["count"]
-            else:
-                stats["relationships"][record["relationship_type"]] = record["count"]
+        rel_query = """
+        MATCH ()-[r]->()
+        RETURN type(r) as type, count(r) as count
+        """
+        rel_result = session.run(rel_query)
+        for record in rel_result:
+            stats["relationships"][record["type"] or "RELATED"] = record["count"]
 
         return stats
 
@@ -312,8 +390,8 @@ def get_related_papers(paper_id: str, limit: int = 10) -> List[Dict[str, Any]]:
     return GraphOperations.get_related_papers(paper_id, limit)
 
 
-def get_entity_subgraph(entity_name: str, depth: int = 2) -> Dict[str, Any]:
-    """Get entity subgraph"""
+def get_entity_subgraph(entity_name: str, depth: int = 2) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+    """Get entity subgraph, returns (nodes, edges)"""
     return GraphOperations.get_entity_subgraph(entity_name, depth)
 
 

@@ -4,7 +4,7 @@ import structlog
 from fastapi import APIRouter, HTTPException, Query
 
 from app.core.logging import get_logger
-from app.database.faiss_store import search_documents
+from app.services.pinecone_store import pinecone_store
 from app.models.schemas import SearchRequest, SearchResponse
 
 router = APIRouter()
@@ -15,13 +15,16 @@ logger = get_logger("search")
 async def semantic_search(request: SearchRequest):
     """Perform semantic search across papers and entities"""
     try:
-        # Perform semantic search
-        results = search_documents(
-            query=request.query,
-            k=request.limit,
-            filter_metadata=(
-                {"entity_type": request.entity_type} if request.entity_type else None
-            ),
+        # Build filter if entity_type is specified
+        filter_dict = None
+        if request.entity_type:
+            filter_dict = {"entity_type": request.entity_type}
+
+        # Perform semantic search using Pinecone (with auto-embedding)
+        results = await pinecone_store.search(
+            query_text=request.query,
+            top_k=request.limit,
+            filter=filter_dict,
         )
 
         # Format results
@@ -33,7 +36,6 @@ async def semantic_search(request: SearchRequest):
                     "text": result.get("text", ""),
                     "metadata": result.get("metadata", {}),
                     "score": result.get("score", 0.0),
-                    "index": result.get("index", 0),
                 }
             )
 

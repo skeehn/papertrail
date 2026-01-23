@@ -30,13 +30,13 @@ interface PageHeaderProps {
 
 export function PageHeader({ title, description, actions }: PageHeaderProps) {
   return (
-    <div className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10">
-      <div className="px-6 py-4">
+    <div className="border-b border-border/50 bg-background sticky top-0 z-10">
+      <div className="px-6 py-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+            <h1 className="text-2xl font-semibold">{title}</h1>
             {description && (
-              <p className="text-sm text-muted-foreground mt-1">{description}</p>
+              <p className="text-sm text-muted-foreground mt-2">{description}</p>
             )}
           </div>
           {actions && <div className="flex items-center gap-2">{actions}</div>}
@@ -52,7 +52,7 @@ interface PageContentProps {
   maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '4xl' | '6xl' | 'full'
 }
 
-export function PageContent({ children, className, maxWidth = '6xl' }: PageContentProps) {
+export function PageContent({ children, className, maxWidth = '2xl' }: PageContentProps) {
   const maxWidthClass = {
     sm: 'max-w-sm',
     md: 'max-w-md',
@@ -66,7 +66,12 @@ export function PageContent({ children, className, maxWidth = '6xl' }: PageConte
 
   return (
     <div className="flex-1 overflow-y-auto">
-      <div className={cn('mx-auto p-6', maxWidthClass, className)}>
+      <div className={cn(
+        'mx-auto p-6 md:p-8',
+        'w-full md:max-w-2xl lg:max-w-4xl',
+        maxWidth === 'full' ? 'max-w-full' : maxWidthClass,
+        className
+      )}>
         {children}
       </div>
     </div>

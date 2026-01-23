@@ -5,6 +5,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Up
 from fastapi.responses import JSONResponse
 
 from app.core.logging import get_logger, log_processing_step
+from app.core.config import settings
 from app.models.schemas import (
     PaperListResponse,
     PaperProcessingRequest,
@@ -14,10 +15,19 @@ from app.models.schemas import (
 )
 from app.services.entity_extractor import EntityExtractor
 from app.services.graph_builder import GraphBuilder
-from app.services.pdf_processor import PDFProcessor
 
 router = APIRouter()
 logger = get_logger("papers")
+
+# PDF processing - requires PyMuPDF
+try:
+    import fitz
+    from app.services.pdf_processor import PDFProcessor
+    PDF_PROCESSOR_AVAILABLE = True
+except ImportError:
+    fitz = None
+    PDFProcessor = None
+    PDF_PROCESSOR_AVAILABLE = False
 
 
 @router.post("/upload", response_model=PaperUploadResponse)
@@ -28,6 +38,9 @@ async def upload_paper(
 ):
     """Upload and process a PDF paper"""
     try:
+        # Read file content first
+        content = await file.read()
+
         # Validate file type
         if not file.filename:
             raise HTTPException(status_code=400, detail="No filename provided")
@@ -36,21 +49,26 @@ async def upload_paper(
             raise HTTPException(status_code=400, detail="Only PDF files are supported")
 
         # Validate file size
-        content = await file.read()
         if len(content) > 50 * 1024 * 1024:  # 50MB limit
             raise HTTPException(status_code=400, detail="File size exceeds 50MB limit")
+
+        # Validate file content is actually a PDF
+        if not content.startswith(b'%PDF'):
+            raise HTTPException(status_code=400, detail="File is not a valid PDF")
 
         if len(content) == 0:
             raise HTTPException(status_code=400, detail="Empty file uploaded")
 
         # Ensure upload directory exists
         import os
+        import json
+        from app.core.config import settings
 
-        os.makedirs("uploads", exist_ok=True)
+        os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
 
         # Save uploaded file with sanitized filename
         safe_filename = os.path.basename(file.filename)
-        file_path = f"uploads/{safe_filename}"
+        file_path = os.path.join(settings.UPLOAD_DIR, safe_filename)
 
         with open(file_path, "wb") as buffer:
             buffer.write(content)
@@ -114,6 +132,10 @@ async def get_paper(paper_id: str):
         if not paper:
             raise HTTPException(status_code=404, detail="Paper not found")
 
+        # Ensure required fields are present
+        if not paper.get("title"):
+            paper["title"] = paper.get("filename", "Untitled Paper")
+        
         return PaperResponse(**paper)
 
     except HTTPException:
@@ -129,10 +151,27 @@ async def list_papers(skip: int = 0, limit: int = 20, search: Optional[str] = No
     try:
         from app.database import list_papers as db_list_papers
 
-        papers = db_list_papers(skip=skip, limit=limit, search=search)
+        # #region agent log
+        try:
+            import json
+            # Removed debug logging
+        except Exception:
+            pass
+        # #endregion agent log
+
+        # Handle None search parameter properly - empty string means no search filter
+        search_param = search if search else None
+        
+        papers = db_list_papers(skip=skip, limit=limit, search=search_param)
+        
+        # Bug fix: total should be count of ALL matching papers, not just returned slice
+        # Get total count by getting all matching papers (before pagination)
+        # This is inefficient but correct until mock_store has a count method
+        all_matching_papers = db_list_papers(skip=0, limit=999999, search=search_param)
+        total_count = len(all_matching_papers)
 
         return PaperListResponse(
-            papers=papers, total=len(papers), skip=skip, limit=limit
+            papers=papers, total=total_count, skip=skip, limit=limit
         )
 
     except Exception as e:
@@ -215,14 +254,37 @@ async def process_paper_background(request: PaperProcessingRequest):
             request.id, 0.1, "Extracting text from PDF", "pdf_extraction"
         )
         log_processing_step("pdf_extraction", request.id)
+        
+        # Debug logging (only in development)
+        if settings.ENVIRONMENT == "development":
+            try:
+                import json
+                import os
+                debug_log_path = os.path.join(os.getcwd(), ".cursor", "debug.log")
+                os.makedirs(os.path.dirname(debug_log_path), exist_ok=True)
+                with open(debug_log_path, 'a') as f:
+                    f.write(json.dumps({"id": "log_pdf_processor_check", "timestamp": __import__('time').time() * 1000, "location": "papers.py:241", "message": "PDFProcessor availability check", "data": {"pdf_processor_available": PDF_PROCESSOR_AVAILABLE, "has_file_path": bool(request.file_path), "has_arxiv_id": bool(request.arxiv_id), "hypothesisId": "H"}, "sessionId": "debug-session", "runId": "run1"}) + "\n")
+            except Exception:
+                pass
+        
+        if not PDF_PROCESSOR_AVAILABLE or PDFProcessor is None:
+            error_msg = "PDF processing is not available. PDFProcessor library is not installed."
+            logger.error("PDFProcessor not available", request_id=request.id)
+            raise RuntimeError(error_msg)
+        
         pdf_processor = PDFProcessor()
-
-        if request.arxiv_id:
+        
+        if request.file_path:
+            # Process local file
+            paper_data = await pdf_processor.process_file(request.file_path)
+        elif request.arxiv_id:
             # Download from arXiv
             paper_data = await pdf_processor.download_from_arxiv(request.arxiv_id)
         else:
-            # Process local file
-            paper_data = await pdf_processor.process_file(request.file_path)
+            # Bug fix: HTTPException doesn't work in background tasks, use ValueError instead
+            error_msg = "Either file_path or arxiv_id must be provided"
+            logger.error("Background task validation failed", error=error_msg, request_id=request.id)
+            raise ValueError(error_msg)
 
         # Step 2: Extract entities and relationships
         await processing_notifier.update_progress(
@@ -233,9 +295,14 @@ async def process_paper_background(request: PaperProcessingRequest):
         )
         log_processing_step("entity_extraction", request.id)
         entity_extractor = EntityExtractor()
+        
+        text_content = paper_data.get("text", "")
+        if not text_content:
+            raise ValueError("PDF processing did not extract any text content")
+        
         entities, relationships = (
             await entity_extractor.extract_entities_and_relationships(
-                paper_data["text"]
+                text_content
             )
         )
 
@@ -254,15 +321,16 @@ async def process_paper_background(request: PaperProcessingRequest):
         log_processing_step("vector_store", request.id)
         from app.database.faiss_store import add_documents_to_store
 
+        paper_id_for_store = paper_data.get("arxiv_id") or paper_data.get("id") or str(__import__('uuid').uuid4())
         add_documents_to_store(
             [
                 {
-                    "id": paper_data["arxiv_id"],
-                    "text": paper_data["text"],
+                    "id": paper_id_for_store,
+                    "text": paper_data.get("text", ""),
                     "metadata": {
-                        "title": paper_data["title"],
-                        "authors": paper_data["authors"],
-                        "arxiv_id": paper_data["arxiv_id"],
+                        "title": paper_data.get("title", ""),
+                        "authors": paper_data.get("authors", []),
+                        "arxiv_id": paper_data.get("arxiv_id"),
                     },
                 }
             ]
@@ -272,7 +340,7 @@ async def process_paper_background(request: PaperProcessingRequest):
         await processing_notifier.complete_processing(
             request.id,
             {
-                "paper_id": paper_data["arxiv_id"],
+                "paper_id": paper_data.get("arxiv_id") or paper_data.get("id") or request.id,
                 "entities_extracted": len(entities),
                 "relationships_extracted": len(relationships),
                 "graph_result": result,

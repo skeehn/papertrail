@@ -5,8 +5,8 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from app.agents.reasoning_agent import answer_complex_query
 from app.core.logging import get_logger
+from app.core.cache import cached
 from app.services.trend_analyzer import (
     analyze_trends,
     compare_entity_trends,
@@ -16,6 +16,9 @@ from app.services.trend_analyzer import (
 
 router = APIRouter()
 logger = get_logger("insights_api")
+
+# Import reasoning agent but don't instantiate at module level
+# reasoning_agent = ReasoningAgent()  # Disabled until properly configured
 
 
 # Request/Response Models
@@ -69,7 +72,9 @@ async def complex_reasoning(request: ComplexQueryRequest) -> Dict[str, Any]:
     Returns answer with reasoning steps and sources.
     """
     try:
-        result = await answer_complex_query(request.query, request.context)
+        from app.agents.reasoning_agent import ReasoningAgent
+        agent = ReasoningAgent()
+        result = await agent.answer_complex_query(request.query, request.context)
         return result
 
     except Exception as e:
@@ -99,6 +104,7 @@ async def analyze_entity_trends(request: TrendAnalysisRequest) -> Dict[str, Any]
 
 
 @router.get("/trends/emerging", response_model=List[Dict[str, Any]])
+@cached(ttl_seconds=21600, key_prefix="trends_emerging:")  # Cache for 6 hours
 async def get_emerging_topics(
     lookback_months: int = Query(default=12, ge=1, le=36),
     min_growth_rate: float = Query(default=50.0, ge=0.0),
@@ -123,6 +129,7 @@ async def get_emerging_topics(
 
 
 @router.get("/trends/trending", response_model=List[Dict[str, Any]])
+@cached(ttl_seconds=21600, key_prefix="trends_trending:")  # Cache for 6 hours
 async def get_trending_topics(
     recent_months: int = Query(default=6, ge=1, le=24),
     top_n: int = Query(default=10, ge=1, le=50),

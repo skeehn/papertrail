@@ -323,35 +323,17 @@ Always provide specific evidence and reasoning for your critiques with confidenc
             ]
 
             response = await self.call_llm(
-                messages, functions=[self.critical_analysis_function], temperature=0.1
+                messages, temperature=0.1
             )
 
-            if response["type"] == "function_call":
-                analysis_data = json.loads(response["arguments"])
-                analysis = analysis_data["analysis"]
-                formatted_response = self._format_contradiction_analysis(analysis)
-
-                return AgentResponse(
-                    response=formatted_response,
-                    sources=[paper["id"] for paper in papers],
-                    confidence=analysis.get("confidence", 0.8),
-                    agent_type=self.agent_type.value,
-                    processing_time=0.0,
-                    metadata={
-                        "analysis_type": "contradiction_detection",
-                        "contradiction_count": len(analysis.get("contradictions", [])),
-                    },
-                    reasoning="Identified contradictions by comparing claims and findings across papers",
-                )
-            else:
-                return AgentResponse(
-                    response=response["content"],
-                    sources=[paper["id"] for paper in papers],
-                    confidence=0.75,
-                    agent_type=self.agent_type.value,
-                    processing_time=0.0,
-                    metadata={"analysis_type": "contradiction_detection"},
-                )
+            return AgentResponse(
+                response=response["content"],
+                sources=[paper["id"] for paper in papers],
+                confidence=0.75,
+                agent_type=self.agent_type.value,
+                processing_time=0.0,
+                metadata={"analysis_type": "contradiction_detection"},
+            )
 
         except Exception as e:
             self.logger.error("Contradiction analysis failed", error=str(e))
@@ -479,37 +461,17 @@ Always provide specific evidence and reasoning for your critiques with confidenc
             ]
 
             response = await self.call_llm(
-                messages, functions=[self.critical_analysis_function], temperature=0.1
+                messages, temperature=0.1
             )
 
-            if response["type"] == "function_call":
-                analysis_data = json.loads(response["arguments"])
-                analysis = analysis_data["analysis"]
-                formatted_response = self._format_comprehensive_critique(analysis)
-
-                return AgentResponse(
-                    response=formatted_response,
-                    sources=[paper["id"] for paper in papers],
-                    confidence=analysis.get("confidence", 0.8),
-                    agent_type=self.agent_type.value,
-                    processing_time=0.0,
-                    metadata={
-                        "analysis_type": "comprehensive_critique",
-                        "assumption_count": len(analysis.get("assumptions", [])),
-                        "contradiction_count": len(analysis.get("contradictions", [])),
-                        "weakness_count": len(analysis.get("weaknesses", [])),
-                    },
-                    reasoning="Comprehensive critical analysis examining assumptions, contradictions, weaknesses, and limitations",
-                )
-            else:
-                return AgentResponse(
-                    response=response["content"],
-                    sources=[paper["id"] for paper in papers],
-                    confidence=0.78,
-                    agent_type=self.agent_type.value,
-                    processing_time=0.0,
-                    metadata={"analysis_type": "comprehensive_critique"},
-                )
+            return AgentResponse(
+                response=response["content"],
+                sources=[paper["id"] for paper in papers],
+                confidence=0.78,
+                agent_type=self.agent_type.value,
+                processing_time=0.0,
+                metadata={"analysis_type": "comprehensive_critique"},
+            )
 
         except Exception as e:
             self.logger.error("Comprehensive critique failed", error=str(e))

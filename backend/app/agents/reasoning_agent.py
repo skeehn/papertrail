@@ -10,7 +10,7 @@ from app.agents.base_agent import AgentType, BaseAgent
 from app.core.config import settings
 from app.core.logging import get_logger
 from app.database.neo4j_client import Neo4jClient
-from app.database.pinecone_store import pinecone_store
+from app.services.pinecone_store import pinecone_store
 
 logger = get_logger("reasoning_agent")
 
@@ -32,10 +32,64 @@ class ReasoningAgent(BaseAgent):
     """Agent for multi-hop reasoning across research papers"""
 
     def __init__(self):
-        super().__init__(AgentType.SYNTHESIZER)  # Reuse synthesizer type
+        super().__init__(AgentType.REASONING)
         self.neo4j_client = Neo4jClient()
         self.max_hops = 3
         self.max_results_per_hop = 10
+
+    def get_system_prompt(self) -> str:
+        """Get system prompt for reasoning agent"""
+        return """You are a multi-hop reasoning agent specializing in research questions.
+Your task is to break down complex questions into simpler sub-questions,
+answer them step-by-step using graph traversal and vector search,
+and then synthesize a comprehensive final answer.
+
+Capabilities:
+- Multi-hop reasoning across research papers
+- Graph traversal to find relationships between entities
+- Vector search for finding relevant papers
+- Evidence accumulation across reasoning steps
+- Confidence scoring based on evidence quality
+
+Focus on accuracy and provide sources for all claims.
+"""
+
+    def get_capabilities(self) -> List[str]:
+        """Get agent capabilities"""
+        return [
+            "multi-hop reasoning",
+            "graph traversal",
+            "vector search",
+            "relationship discovery",
+            "evidence accumulation",
+            "confidence scoring",
+            "question decomposition",
+        ]
+
+    async def process_task(self, task) -> AgentResponse:
+        """Process a reasoning task"""
+        from app.agents.base_agent import AgentTask
+
+        try:
+            result = await self.answer_complex_query(
+                query=task.query,
+                context=task.context
+            )
+
+            sources = []
+            if "sources" in result:
+                sources = result["sources"]
+
+            return AgentResponse(
+                response=result.get("answer", ""),
+                sources=[s.get("title", "") for s in sources] if sources else [],
+                confidence=result.get("confidence", 0.0),
+                agent_type="reasoning",
+                processing_time=0.0,
+            )
+        except Exception as e:
+            self.logger.error(f"Reasoning task failed: {str(e)}")
+            raise
 
     async def answer_complex_query(
         self, query: str, context: Optional[Dict[str, Any]] = None

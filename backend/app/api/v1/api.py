@@ -3,12 +3,17 @@ from fastapi import APIRouter
 from app.api.v1.endpoints import (
     agents,
     arxiv,
+    citations,
     communities,
+    contradictions,
+    dashboard,
     entities,
+    gaps,
     graph,
     insights,
     memories,
     papers,
+    recommendations,
     search,
     web_search,
 )
@@ -28,3 +33,8 @@ api_router.include_router(
     communities.router, prefix="/communities", tags=["communities"]
 )
 api_router.include_router(insights.router, prefix="/insights", tags=["insights"])
+api_router.include_router(dashboard.router, prefix="/dashboard", tags=["dashboard"])
+api_router.include_router(citations.router, prefix="/citations", tags=["citations"])
+api_router.include_router(contradictions.router, prefix="/contradictions", tags=["contradictions"])
+api_router.include_router(gaps.router, prefix="/gaps", tags=["gaps"])
+api_router.include_router(recommendations.router, prefix="/recommendations", tags=["recommendations"])

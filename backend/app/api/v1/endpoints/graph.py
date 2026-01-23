@@ -5,6 +5,7 @@ import structlog
 from fastapi import APIRouter, HTTPException, Query
 
 from app.core.logging import get_logger, log_graph_operation
+from app.core.cache import cached
 from app.database.mock_store import mock_store
 from app.database.neo4j_client import get_entity_subgraph
 from app.models.schemas import GraphQueryRequest, GraphResponse
@@ -14,6 +15,7 @@ logger = get_logger("graph")
 
 
 @router.post("/query", response_model=GraphResponse)
+@cached(ttl_seconds=3600, key_prefix="graph_query:")  # Cache for 1 hour
 async def query_graph(request: GraphQueryRequest):
     """Query the knowledge graph for nodes and relationships"""
     try:
@@ -26,52 +28,56 @@ async def query_graph(request: GraphQueryRequest):
         )
 
         if request.entity_name:
-            # For now, return mock data for the requested entity
-            # TODO: Implement actual Neo4j query
-            nodes = [
-                {
-                    "id": request.entity_name,
-                    "label": request.entity_name,
-                    "type": "Entity",
-                    "properties": {
-                        "name": request.entity_name,
-                        "description": f"Mock entity for {request.entity_name}",
-                    },
-                },
-                {
-                    "id": f"{request.entity_name}_related_1",
-                    "label": f"Related concept 1",
-                    "type": "Concept",
-                    "properties": {"name": "Related concept 1", "relevance": 0.8},
-                },
-                {
-                    "id": f"{request.entity_name}_related_2",
-                    "label": f"Related concept 2",
-                    "type": "Concept",
-                    "properties": {"name": "Related concept 2", "relevance": 0.6},
-                },
-            ]
-
-            edges = [
-                {
-                    "source": request.entity_name,
-                    "target": f"{request.entity_name}_related_1",
-                    "type": "RELATED_TO",
-                    "properties": {"strength": 0.9},
-                },
-                {
-                    "source": request.entity_name,
-                    "target": f"{request.entity_name}_related_2",
-                    "type": "RELATED_TO",
-                    "properties": {"strength": 0.7},
-                },
-            ]
-
-            return GraphResponse(nodes=nodes, edges=edges)
+            # Use real Neo4j query
+            try:
+                nodes, edges = get_entity_subgraph(request.entity_name, request.depth)
+                
+                # Format nodes for response
+                formatted_nodes = []
+                for node in nodes:
+                    formatted_nodes.append({
+                        "id": node.get("id", ""),
+                        "label": node.get("label", ""),
+                        "type": node.get("type", "Entity"),
+                        "properties": node.get("properties", {})
+                    })
+                
+                # Format edges for response
+                formatted_edges = []
+                for edge in edges:
+                    formatted_edges.append({
+                        "source": edge.get("source", ""),
+                        "target": edge.get("target", ""),
+                        "type": edge.get("type", "RELATED_TO"),
+                        "properties": edge.get("properties", {})
+                    })
+                
+                return GraphResponse(nodes=formatted_nodes, edges=formatted_edges)
+            except Exception as e:
+                logger.warning(f"Neo4j query failed, using fallback: {e}")
+                # Fallback to empty response if Neo4j fails
+                return GraphResponse(nodes=[], edges=[])
 
         elif request.paper_id:
             # TODO: Implement paper-centric graph query
-            return GraphResponse(nodes=[], edges=[])
+            # For now, return entities related to the paper
+            try:
+                from app.database import get_paper_entities
+                entities = get_paper_entities(request.paper_id)
+                
+                nodes = []
+                for entity in entities:
+                    nodes.append({
+                        "id": entity.get("name", ""),
+                        "label": entity.get("name", ""),
+                        "type": entity.get("type", "Entity"),
+                        "properties": entity
+                    })
+                
+                return GraphResponse(nodes=nodes, edges=[])
+            except Exception as e:
+                logger.warning(f"Paper entities query failed: {e}")
+                return GraphResponse(nodes=[], edges=[])
 
         else:
             # Return empty graph if no specific query
@@ -83,13 +89,35 @@ async def query_graph(request: GraphQueryRequest):
 
 
 @router.get("/statistics")
+@cached(ttl_seconds=1800, key_prefix="graph_stats:")  # Cache for 30 minutes
 async def get_graph_statistics_endpoint():
     """Get statistics about the knowledge graph"""
     try:
         # Log graph operation
         log_graph_operation("statistics_retrieval")
 
-        # Get actual memory count from mock store
+        # Try to get real statistics from Neo4j
+        try:
+            from app.database.neo4j_client import get_graph_statistics
+            stats = get_graph_statistics()
+            
+            # Format statistics
+            node_count = sum(stats.get("nodes", {}).values())
+            relationship_count = sum(stats.get("relationships", {}).values())
+            
+            return {
+                "statistics": {
+                    "node_count": node_count,
+                    "relationship_count": relationship_count,
+                    "node_types": stats.get("nodes", {}),
+                    "relationship_types": stats.get("relationships", {}),
+                },
+                "timestamp": datetime.utcnow().isoformat(),
+                "source": "neo4j",
+            }
+        except Exception as e:
+            logger.warning(f"Neo4j statistics failed, using fallback: {e}")
+            # Fallback to mock store if Neo4j fails
         memory_count = (
             len(mock_store.entities) if hasattr(mock_store, "entities") else 0
         )
@@ -98,7 +126,6 @@ async def get_graph_statistics_endpoint():
             len(mock_store.relationships) if hasattr(mock_store, "relationships") else 0
         )
 
-        # Generate realistic statistics based on actual data
         stats = {
             "node_count": memory_count + paper_count,
             "relationship_count": relationship_count,
@@ -118,7 +145,7 @@ async def get_graph_statistics_endpoint():
 
         return {
             "statistics": stats,
-            "timestamp": "2025-08-23T19:25:00Z",
+                "timestamp": datetime.utcnow().isoformat(),
             "source": "mock_store",
         }
 
@@ -137,14 +164,54 @@ async def get_graph_nodes(
 ):
     """Get nodes from the knowledge graph"""
     try:
-        # TODO: Implement node retrieval with filtering
-        nodes = []
+        from app.database.neo4j_client import neo4j_client
+        
+        if not neo4j_client._driver:
+            return {"nodes": [], "total": 0, "limit": limit, "skip": skip}
+        
+        with neo4j_client.get_session() as session:
+            if node_type:
+                query = f"""
+                MATCH (n:{node_type})
+                RETURN n
+                SKIP $skip
+                LIMIT $limit
+                """
+                result = session.run(query, skip=skip, limit=limit)
+            else:
+                query = """
+                MATCH (n)
+                RETURN n
+                SKIP $skip
+                LIMIT $limit
+                """
+                result = session.run(query, skip=skip, limit=limit)
 
-        return {"nodes": nodes, "total": len(nodes), "limit": limit, "skip": skip}
+        nodes = []
+        for record in result:
+            node = record["n"]
+            node_data = {
+                "id": node.get("arxiv_id") or node.get("name") or str(node.id),
+                "label": node.get("title") or node.get("name") or node.get("arxiv_id") or str(node.id),
+                "type": list(node.labels)[0] if node.labels else "Node",
+                "properties": dict(node)
+            }
+            nodes.append(node_data)
+            
+            # Get total count
+            if node_type:
+                count_query = f"MATCH (n:{node_type}) RETURN count(n) as total"
+            else:
+                count_query = "MATCH (n) RETURN count(n) as total"
+            count_result = session.run(count_query)
+            total = count_result.single()["total"] if count_result.peek() else 0
+
+        return {"nodes": nodes, "total": total, "limit": limit, "skip": skip}
 
     except Exception as e:
         logger.error("Failed to get graph nodes", error=str(e))
-        raise HTTPException(status_code=500, detail="Failed to retrieve graph nodes")
+        # Return empty result on error rather than failing
+        return {"nodes": [], "total": 0, "limit": limit, "skip": skip}
 
 
 @router.get("/edges")
@@ -155,14 +222,61 @@ async def get_graph_edges(
 ):
     """Get edges from the knowledge graph"""
     try:
-        # TODO: Implement edge retrieval with filtering
-        edges = []
+        from app.database.neo4j_client import neo4j_client
+        
+        if not neo4j_client._driver:
+            return {"edges": [], "total": 0, "limit": limit, "skip": skip}
+        
+        with neo4j_client.get_session() as session:
+            if edge_type:
+                query = f"""
+                MATCH (a)-[r:{edge_type}]->(b)
+                RETURN 
+                    coalesce(a.arxiv_id, a.name, toString(id(a))) as source,
+                    coalesce(b.arxiv_id, b.name, toString(id(b))) as target,
+                    type(r) as type,
+                    properties(r) as properties
+                SKIP $skip
+                LIMIT $limit
+                """
+                result = session.run(query, skip=skip, limit=limit)
+            else:
+                query = """
+                MATCH (a)-[r]->(b)
+                RETURN 
+                    coalesce(a.arxiv_id, a.name, toString(id(a))) as source,
+                    coalesce(b.arxiv_id, b.name, toString(id(b))) as target,
+                    type(r) as type,
+                    properties(r) as properties
+                SKIP $skip
+                LIMIT $limit
+                """
+                result = session.run(query, skip=skip, limit=limit)
 
-        return {"edges": edges, "total": len(edges), "limit": limit, "skip": skip}
+        edges = []
+        for record in result:
+            edge_data = {
+                "source": record["source"],
+                "target": record["target"],
+                "type": record["type"],
+                "properties": record["properties"] or {}
+            }
+            edges.append(edge_data)
+            
+            # Get total count
+            if edge_type:
+                count_query = f"MATCH ()-[r:{edge_type}]->() RETURN count(r) as total"
+            else:
+                count_query = "MATCH ()-[r]->() RETURN count(r) as total"
+            count_result = session.run(count_query)
+            total = count_result.single()["total"] if count_result.peek() else 0
+
+        return {"edges": edges, "total": total, "limit": limit, "skip": skip}
 
     except Exception as e:
         logger.error("Failed to get graph edges", error=str(e))
-        raise HTTPException(status_code=500, detail="Failed to retrieve graph edges")
+        # Return empty result on error rather than failing
+        return {"edges": [], "total": 0, "limit": limit, "skip": skip}
 
 
 @router.get("/communities")
@@ -221,8 +335,52 @@ async def get_shortest_paths(
 ):
     """Get shortest paths between nodes"""
     try:
-        # TODO: Implement shortest path calculation
-        paths = []
+        from app.database.neo4j_client import neo4j_client
+        
+        if not neo4j_client._driver:
+            return {
+                "source": source,
+                "target": target,
+                "paths": [],
+                "max_length": max_length,
+            }
+        
+        with neo4j_client.get_session() as session:
+            query = """
+            MATCH path = shortestPath((a)-[*1..$max_length]-(b))
+            WHERE (a.arxiv_id = $source OR a.name = $source OR toString(id(a)) = $source)
+            AND (b.arxiv_id = $target OR b.name = $target OR toString(id(b)) = $target)
+            RETURN path
+            LIMIT 10
+            """
+            
+            result = session.run(query, source=source, target=target, max_length=max_length)
+            
+            paths = []
+            for record in result:
+                path = record["path"]
+                path_nodes = []
+                path_edges = []
+                
+                for node in path.nodes:
+                    path_nodes.append({
+                        "id": node.get("arxiv_id") or node.get("name") or str(node.id),
+                        "label": node.get("title") or node.get("name") or str(node.id),
+                        "type": list(node.labels)[0] if node.labels else "Node",
+                    })
+                
+                for rel in path.relationships:
+                    path_edges.append({
+                        "source": str(rel.start_node.id),
+                        "target": str(rel.end_node.id),
+                        "type": rel.type,
+                    })
+                
+                paths.append({
+                    "nodes": path_nodes,
+                    "edges": path_edges,
+                    "length": len(path_edges),
+                })
 
         return {
             "source": source,
@@ -233,7 +391,13 @@ async def get_shortest_paths(
 
     except Exception as e:
         logger.error("Failed to get shortest paths", error=str(e))
-        raise HTTPException(status_code=500, detail="Failed to retrieve shortest paths")
+        # Return empty paths on error rather than failing
+        return {
+            "source": source,
+            "target": target,
+            "paths": [],
+            "max_length": max_length,
+        }
 
 
 @router.get("/export")

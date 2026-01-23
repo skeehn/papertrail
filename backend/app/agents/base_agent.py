@@ -10,7 +10,7 @@ import structlog
 
 from app.core.config import settings
 from app.core.logging import get_logger, log_agent_activity
-from app.database.faiss_store import search_documents
+from app.services.pinecone_store import pinecone_store
 from app.database.neo4j_client import neo4j_client
 
 
@@ -20,6 +20,7 @@ class AgentType(str, Enum):
     SYNTHESIZER = "synthesizer"
     CRITIC = "critic"
     CONNECTOR = "connector"
+    REASONING = "reasoning"
 
 
 class TaskPriority(str, Enum):
@@ -70,6 +71,15 @@ class BaseAgent(ABC):
         client_kwargs = {"api_key": settings.OPENAI_API_KEY}
         if settings.OPENAI_BASE_URL:
             client_kwargs["base_url"] = settings.OPENAI_BASE_URL
+            # Add OpenRouter-specific headers if using OpenRouter
+            if "openrouter.ai" in settings.OPENAI_BASE_URL:
+                default_headers = {}
+                if settings.OPENROUTER_HTTP_REFERER:
+                    default_headers["HTTP-Referer"] = settings.OPENROUTER_HTTP_REFERER
+                if settings.OPENROUTER_X_TITLE:
+                    default_headers["X-Title"] = settings.OPENROUTER_X_TITLE
+                if default_headers:
+                    client_kwargs["default_headers"] = default_headers
         self.client = openai.AsyncOpenAI(**client_kwargs)
 
         # Agent configuration
@@ -207,17 +217,20 @@ class BaseAgent(ABC):
 
             else:
                 # Use vector search to find relevant papers
-                search_results = search_documents(query, k=limit)
+                search_results = await pinecone_store.search(
+                    query_text=query,
+                    top_k=limit,
+                )
 
                 for result in search_results:
-                    if result["metadata"].get("type") == "paper":
+                    if result.get("metadata", {}).get("type") == "paper" or result.get("id", "").startswith("paper_"):
                         relevant_papers.append(
                             {
-                                "id": result["metadata"]["arxiv_id"],
-                                "title": result["metadata"]["title"],
-                                "authors": result["metadata"]["authors"],
-                                "abstract": result["metadata"]["abstract"],
-                                "similarity_score": result["score"],
+                                "id": result.get("metadata", {}).get("arxiv_id", result.get("id", "")),
+                                "title": result.get("metadata", {}).get("title", ""),
+                                "authors": result.get("metadata", {}).get("authors", ""),
+                                "abstract": result.get("metadata", {}).get("abstract", ""),
+                                "similarity_score": result.get("score", 0.0),
                             }
                         )
 
@@ -269,7 +282,7 @@ class BaseAgent(ABC):
     async def call_llm(
         self,
         messages: List[Dict[str, str]],
-        functions: Optional[List[Dict[str, Any]]] = None,
+        tools: Optional[List[Dict[str, Any]]] = None,
         temperature: float = 0.1,
         max_tokens: Optional[int] = None,
     ) -> Dict[str, Any]:
@@ -284,20 +297,22 @@ class BaseAgent(ABC):
             if max_tokens:
                 kwargs["max_tokens"] = max_tokens
 
-            if functions:
-                kwargs["functions"] = functions
-                kwargs["function_call"] = "auto"
+            if tools:
+                kwargs["tools"] = tools
+                kwargs["tool_choice"] = "auto"
 
             response = await self.client.chat.completions.create(**kwargs)
 
             choice = response.choices[0]
 
-            # Handle function call response
-            if choice.message.function_call:
+            # Handle tool call response
+            if choice.message.tool_calls:
+                tool_call = choice.message.tool_calls[0]
                 return {
-                    "type": "function_call",
-                    "function_name": choice.message.function_call.name,
-                    "arguments": choice.message.function_call.arguments,
+                    "type": "tool_call",
+                    "tool_call_id": tool_call.id,
+                    "function_name": tool_call.function.name,
+                    "arguments": tool_call.function.arguments,
                     "content": choice.message.content,
                 }
 

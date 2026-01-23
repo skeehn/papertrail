@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional
 from app.core.config import settings
 from app.core.logging import get_logger
 from app.database.neo4j_client import Neo4jClient
-from app.database.pinecone_store import pinecone_store
+from app.services.pinecone_store import pinecone_store
 from app.services.arxiv_client import arxiv_client
 from app.services.entity_extractor import EntityExtractor
 from app.services.graph_builder import GraphBuilder
@@ -137,7 +137,7 @@ class BatchIndexer:
 
             # 3. Process PDF
             paper_status["status"] = ProcessingStatus.PROCESSING_PDF
-            pdf_content = self.pdf_processor.process_pdf(pdf_path)
+            pdf_content = await self.pdf_processor.process_file(pdf_path)
 
             if not pdf_content:
                 raise Exception(f"Failed to process PDF for {arxiv_id}")
@@ -145,12 +145,12 @@ class BatchIndexer:
             # 4. Extract entities
             paper_status["status"] = ProcessingStatus.EXTRACTING_ENTITIES
             full_text = pdf_content.get("full_text", "")
-            entities = self.entity_extractor.extract_entities(full_text)
+            entities = await self.entity_extractor.extract_entities(full_text)
 
             # 5. Build graph
             paper_status["status"] = ProcessingStatus.BUILDING_GRAPH
 
-            # Create paper node in Neo4j
+            # Create paper node and add entities/relationships to graph
             paper_node = {
                 "arxiv_id": arxiv_id,
                 "title": paper_metadata["title"],
@@ -159,19 +159,19 @@ class BatchIndexer:
                 "categories": paper_metadata["categories"],
                 "published_date": paper_metadata["published_date"],
                 "pdf_url": paper_metadata["pdf_url"],
+                "text": pdf_content.get("text", ""),
             }
 
-            # Use graph builder to create nodes and relationships
-            self.graph_builder.create_paper_node(paper_node)
+            # Add processing stats as flat properties
+            if "processing_stats" in pdf_content:
+                paper_node.update({
+                    "page_count": pdf_content["processing_stats"].get("page_count"),
+                    "text_length": pdf_content["processing_stats"].get("text_length"),
+                })
 
-            for entity in entities:
-                self.graph_builder.create_entity_node(entity)
-                self.graph_builder.create_relationship(
-                    arxiv_id,
-                    entity["name"],
-                    "MENTIONS",
-                    {"confidence": entity.get("confidence", 0.5)},
-                )
+            # Use graph builder to create paper and entities
+            relationships = []
+            self.graph_builder.add_paper_to_graph(paper_node, entities, relationships)
 
             # 6. Index in vector store
             paper_status["status"] = ProcessingStatus.INDEXING_VECTORS
@@ -194,22 +194,23 @@ class BatchIndexer:
 
             # Add high-confidence entities to vector store
             for entity in entities:
-                if entity.get("confidence", 0) > 0.7:
+                if entity.confidence > 0.7:
+                    entity_type = entity.type.value if hasattr(entity.type, 'value') else str(entity.type)
                     documents.append(
                         {
-                            "id": f"entity_{arxiv_id}_{entity['name']}",
-                            "text": f"{entity['name']}: {entity.get('description', '')}",
+                            "id": f"entity_{arxiv_id}_{entity.name}",
+                            "text": f"{entity.name}: {entity.description}",
                             "metadata": {
                                 "arxiv_id": arxiv_id,
                                 "type": "entity",
-                                "entity_type": entity.get("type", "unknown"),
-                                "entity_name": entity["name"],
+                                "entity_type": entity_type,
+                                "entity_name": entity.name,
                             },
                         }
                     )
 
             # Add to Pinecone
-            pinecone_store.add_documents(documents)
+            await pinecone_store.add_documents(documents)
 
             # Mark as completed
             paper_status["status"] = ProcessingStatus.COMPLETED

@@ -1,0 +1,1 @@
+{"id": "log_list_papers", "timestamp": 1769110277944.768, "location": "papers.py:138", "message": "List papers call", "data": {"skip": 0, "limit": 20, "search": null, "search_or_empty": "", "hypothesisId": "G"}, "sessionId": "debug-session", "runId": "run1"}

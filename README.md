@@ -125,23 +125,109 @@ Papertrail is an AI-powered research assistant that helps you discover insights 
 
 3. **Configure environment**
    ```bash
-   # Copy template
-   cp backend/.env.example backend/.env
+   # Frontend
+   cp frontend/.env.local.example frontend/.env.local
+   # Edit frontend/.env.local with your backend URL (default: http://localhost:8000)
 
-   # Edit backend/.env with your API keys
-   # See SETUP_GUIDE.md for detailed configuration
+   # Backend (optional)
+   cp backend/.env.example backend/.env
+   # Edit backend/.env with your API keys (OpenRouter, Neo4j, Pinecone)
    ```
 
-4. **Test connections**
+4. **Test connections** (optional - requires configured backend)
    ```bash
    cd backend
    python scripts/test_connections.py
    ```
 
-5. **Index demo papers** (20 papers, ~5-10 minutes)
+5. **Start the application**
+
+   Option A: Start Frontend Only (uses mock backend data)
    ```bash
-   python scripts/preindex_demo_papers.py --quick
+   cd frontend
+   npm run dev
+   # Frontend will start at: http://localhost:3000
    ```
+
+   Option B: Start Backend (requires Neo4j and API keys)
+   ```bash
+   # Backend (terminal 1)
+   cd backend
+   uvicorn app.main:app --reload --port 8000
+
+   # Frontend (in a separate terminal)
+   cd frontend
+   npm run dev
+   # Frontend will start at: http://localhost:3000
+   # API docs at: http://localhost:8000/docs
+   ```
+
+### ✅ Recently Completed (This Integration Plan)
+
+**Phase 1 - Core Connectivity:**
+- ✅ Removed hardcoded paths and debug code from `papers.py`
+- ✅ Created Next.js API route proxies for papers, agents, and dashboard
+- ✅ Connected Papers Library to real API with `use-papers` hook
+- ✅ Connected Enhanced Chat to backend agents with `use-agent-chat` hook
+- ✅ Connected Dashboard to real APIs
+
+**Phase 2 - Graph Enhancement:**
+- ✅ Implemented real Neo4j queries in graph endpoints
+- ✅ Created force-directed graph layout utility
+- ✅ Added interactive features (layout selector, export button)
+
+**Phase 3 - Testing & Caching:**
+- ✅ Added backend tests for papers, agents, and graph endpoints
+- ✅ Created basic in-memory cache with TTL and cleanup
+
+**Phase 4 - New Features:**
+- ✅ Citation network analysis service and API
+- ✅ Contradiction detection service and API
+- ✅ Research gap analysis service and API
+- ✅ Paper recommendations service and API
+
+### ⚠️ Known Issues & Next Steps
+
+**Backend Issues:**
+- Neo4j connection required for graph features (currently uses mock fallback)
+- ArXiv library optional dependency
+- LSP type warnings in some endpoints (non-blocking)
+
+**Frontend Issues:**
+- Requires `BACKEND_URL` in `.env.local` for API calls
+- Components use API routes that proxy to backend
+
+**To Get Fully Working:**
+
+1. **Configure Environment:**
+   ```bash
+   cd frontend
+   cp .env.local.example .env.local
+   # Edit .env.local: BACKEND_URL=http://localhost:8000
+   ```
+
+2. **Install ArXiv Library (optional):**
+   ```bash
+   cd backend
+   pip install arxiv
+   ```
+
+3. **Start Backend with API Keys:**
+   - Add OpenRouter or OpenAI API key to `.env`
+   - Optionally configure Neo4j for graph features
+   - Run: `uvicorn app.main:app --reload --port 8000`
+
+4. **Start Frontend:**
+   ```bash
+   cd frontend
+   npm run dev
+   ```
+
+5. **Test Integration:**
+   - Upload a paper via chat
+   - Check Papers Library page
+   - Try graph visualization
+   - Use agent chat with different agent types
 
 6. **Start the application**
    ```bash

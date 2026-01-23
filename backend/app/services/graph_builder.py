@@ -81,7 +81,7 @@ class GraphBuilder:
                     p.created_at = $created_at,
                     p.updated_at = $updated_at,
                     p.text_length = $text_length,
-                    p.processing_stats = $processing_stats
+                    p.page_count = $page_count
                 RETURN p.arxiv_id as paper_id
                 """
 
@@ -102,7 +102,7 @@ class GraphBuilder:
                         "updated_at", datetime.utcnow()
                     ).isoformat(),
                     text_length=len(paper_data.get("text", "")),
-                    processing_stats=paper_data.get("processing_stats", {}),
+                    page_count=paper_data.get("page_count"),
                 )
 
                 return result.single()["paper_id"]

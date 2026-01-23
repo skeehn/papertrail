@@ -13,14 +13,31 @@ interface StatsCardProps {
   trend?: {
     value: number
     isPositive: boolean
-  }
+  } | null
+  isLoading?: boolean
   className?: string
 }
 
-export function StatsCard({ title, value, icon: Icon, description, trend, className }: StatsCardProps) {
+export function StatsCard({ title, value, icon: Icon, description, trend, isLoading, className }: StatsCardProps) {
+  if (isLoading) {
+    return (
+      <Card className={cn('p-6', className)}>
+        <div className="flex items-start justify-between">
+          <div className="flex-1">
+            <p className="text-sm font-medium text-muted-foreground">{title}</p>
+            <div className="h-10 w-24 bg-muted/30 rounded mt-2 animate-pulse" />
+          </div>
+          <div className="p-3 rounded-lg bg-muted">
+            <Icon className="w-6 h-6 text-foreground" />
+          </div>
+        </div>
+      </Card>
+    )
+  }
+
   return (
     <Card className={cn(
-      'p-6 hover:shadow-md transition-shadow duration-200',
+      'p-6 border border-border/50 hover:bg-muted/30 transition-colors',
       className
     )}>
       <div className="flex items-start justify-between">
@@ -41,11 +58,8 @@ export function StatsCard({ title, value, icon: Icon, description, trend, classN
             </div>
           )}
         </div>
-        <div className={cn(
-          'p-3 rounded-lg bg-gradient-to-br',
-          'from-primary-500/10 to-primary-600/10'
-        )}>
-          <Icon className="w-6 h-6 text-primary-600" />
+        <div className="p-3 rounded-lg bg-muted">
+          <Icon className="w-6 h-6 text-foreground" />
         </div>
       </div>
     </Card>

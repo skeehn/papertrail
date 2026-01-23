@@ -1,6 +1,6 @@
 "use client"
 
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -12,6 +12,12 @@ import { cn } from '@/lib/utils'
 
 export default function SettingsContent() {
   const { theme, setTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
+
+  // Prevent hydration mismatch by only rendering theme-dependent classes after mount
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   return (
     <div className="space-y-6 max-w-4xl">
@@ -27,7 +33,7 @@ export default function SettingsContent() {
                 onClick={() => setTheme('light')}
                 className={cn(
                   'flex flex-col items-center gap-2 p-4 border-2 rounded-lg transition-all',
-                  theme === 'light' ? 'border-primary-600 bg-primary-50' : 'border-border hover:border-muted-foreground/50'
+                  mounted && theme === 'light' ? 'border-primary-600 bg-primary-50' : 'border-border hover:border-muted-foreground/50'
                 )}
               >
                 <Sun className="w-5 h-5" />
@@ -37,7 +43,7 @@ export default function SettingsContent() {
                 onClick={() => setTheme('dark')}
                 className={cn(
                   'flex flex-col items-center gap-2 p-4 border-2 rounded-lg transition-all',
-                  theme === 'dark' ? 'border-primary-600 bg-primary-50' : 'border-border hover:border-muted-foreground/50'
+                  mounted && theme === 'dark' ? 'border-primary-600 bg-primary-50' : 'border-border hover:border-muted-foreground/50'
                 )}
               >
                 <Moon className="w-5 h-5" />
@@ -47,7 +53,7 @@ export default function SettingsContent() {
                 onClick={() => setTheme('system')}
                 className={cn(
                   'flex flex-col items-center gap-2 p-4 border-2 rounded-lg transition-all',
-                  theme === 'system' ? 'border-primary-600 bg-primary-50' : 'border-border hover:border-muted-foreground/50'
+                  mounted && theme === 'system' ? 'border-primary-600 bg-primary-50' : 'border-border hover:border-muted-foreground/50'
                 )}
               >
                 <Monitor className="w-5 h-5" />

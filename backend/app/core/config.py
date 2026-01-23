@@ -36,7 +36,7 @@ class Settings(BaseSettings):
 
     # Database
     NEO4J_URI: str = Field(default="bolt://localhost:7687")
-    NEO4J_USER: str = Field(default="neo4j")
+    NEO4J_USERNAME: str = Field(default="neo4j")
     NEO4J_PASSWORD: str = Field(default="papertrail123")
     NEO4J_DATABASE: str = Field(default="neo4j")
 
@@ -46,14 +46,18 @@ class Settings(BaseSettings):
     # AI Services
     OPENAI_API_KEY: str = Field(default="sk-placeholder-for-development")
     OPENAI_BASE_URL: Optional[str] = Field(
-        default=None
+        default="https://openrouter.ai/api/v1"
     )  # For OpenRouter or custom endpoints
-    OPENAI_MODEL: str = Field(default="gpt-4-turbo-preview")
+    OPENAI_MODEL: str = Field(default="openai/gpt-4-turbo")  # OpenRouter model format
     OPENAI_MAX_TOKENS: int = Field(default=4000)
+    # OpenRouter specific headers
+    OPENROUTER_HTTP_REFERER: Optional[str] = Field(default=None)  # Your app URL
+    OPENROUTER_X_TITLE: Optional[str] = Field(default="PaperTrail")  # App name
 
     # Vector Store - Pinecone
     PINECONE_API_KEY: str = Field(default="")
     PINECONE_INDEX_NAME: str = Field(default="quickstart")
+    PINECONE_HOST: str = Field(default="")
     PINECONE_DIMENSION: int = Field(default=384)  # for all-MiniLM-L6-v2
     EMBEDDING_MODEL: str = Field(default="sentence-transformers/all-MiniLM-L6-v2")
 

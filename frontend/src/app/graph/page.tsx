@@ -1,12 +1,47 @@
 "use client"
 
-import React from 'react'
+import React, { useState } from 'react'
 import { AppLayout, PageHeader, PageContent } from '@/components/layout/app-layout'
 import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
 import { Network, Maximize, Download } from 'lucide-react'
+import GraphVisualization from '@/components/graph/graph-visualization'
 
 export default function GraphPage() {
+  const [isFullscreen, setIsFullscreen] = useState(false)
+
+  const handleExport = () => {
+    // The export functionality is handled within GraphVisualization component
+    // Trigger it via the button in the component
+    const exportButton = document.querySelector('[data-export-graph]') as HTMLButtonElement
+    if (exportButton) {
+      exportButton.click()
+    }
+  }
+
+  const handleFullscreen = () => {
+    if (!isFullscreen) {
+      // Request fullscreen
+      const element = document.documentElement
+      if (element.requestFullscreen) {
+        element.requestFullscreen().then(() => setIsFullscreen(true))
+      }
+    } else {
+      // Exit fullscreen
+      if (document.exitFullscreen) {
+        document.exitFullscreen().then(() => setIsFullscreen(false))
+      }
+    }
+  }
+
+  // Listen for fullscreen changes
+  React.useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement)
+    }
+    document.addEventListener('fullscreenchange', handleFullscreenChange)
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange)
+  }, [])
+
   return (
     <AppLayout>
       <PageHeader
@@ -14,32 +49,21 @@ export default function GraphPage() {
         description="Explore relationships between papers, claims, and concepts"
         actions={
           <div className="flex gap-2">
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={handleExport}>
               <Download className="w-4 h-4 mr-2" />
               Export
             </Button>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={handleFullscreen}>
               <Maximize className="w-4 h-4 mr-2" />
-              Fullscreen
+              {isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
             </Button>
           </div>
         }
       />
       <PageContent maxWidth="full">
-        <Card className="p-12 text-center min-h-[600px] flex items-center justify-center">
-          <div className="max-w-md">
-            <div className="w-16 h-16 bg-gradient-to-br from-purple-500/10 to-purple-600/10 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Network className="w-8 h-8 text-purple-600" />
-            </div>
-            <h3 className="text-xl font-semibold mb-2">Graph Visualization</h3>
-            <p className="text-muted-foreground mb-6">
-              Your knowledge graph will appear here as you add papers and extract claims
-            </p>
-            <p className="text-sm text-muted-foreground">
-              Upload papers to start building your research knowledge graph
-            </p>
-          </div>
-        </Card>
+        <div className="h-[calc(100vh-200px)] min-h-[600px] w-full rounded-lg border bg-card overflow-hidden shadow-sm">
+          <GraphVisualization className="h-full" />
+        </div>
       </PageContent>
     </AppLayout>
   )

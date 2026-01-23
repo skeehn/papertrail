@@ -8,6 +8,10 @@ import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
+from app.core.logging import get_logger
+
+logger = get_logger("mock_store")
+
 
 class MockPaperStore:
     """In-memory paper storage for development with JSON persistence"""
@@ -32,9 +36,9 @@ class MockPaperStore:
                     self.entities = data.get("entities", {})
                     self.relationships = data.get("relationships", {})
                     self.memories = data.get("memories", [])
-                    print(f"Loaded {len(self.memories)} memories from {self.data_file}")
+                    logger.info(f"Loaded {len(self.memories)} memories from {self.data_file}")
         except Exception as e:
-            print(f"Failed to load data: {e}")
+            logger.warning(f"Failed to load data: {e}")
 
     def _save_data(self):
         """Save data to JSON file"""
@@ -48,7 +52,7 @@ class MockPaperStore:
             with open(self.data_file, "w") as f:
                 json.dump(data, f, indent=2, default=str)
         except Exception as e:
-            print(f"Failed to save data: {e}")
+            logger.warning(f"Failed to save data: {e}")
 
     def store_paper(self, paper_data: Dict[str, Any]) -> str:
         """Store a paper and return its ID"""

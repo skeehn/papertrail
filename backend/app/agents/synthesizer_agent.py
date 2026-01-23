@@ -249,40 +249,17 @@ Be thorough but concise, prioritizing the most significant insights."""
             ]
 
             response = await self.call_llm(
-                messages, functions=[self.synthesis_function]
+                messages, temperature=0.2
             )
 
-            if response["type"] == "function_call":
-                synthesis_data = json.loads(response["arguments"])
-                synthesis = synthesis_data["synthesis"]
-
-                # Format response
-                formatted_response = self._format_synthesis_response(synthesis)
-
-                return AgentResponse(
-                    response=formatted_response,
-                    sources=[paper["id"] for paper in papers],
-                    confidence=synthesis.get("confidence", 0.8),
-                    agent_type=self.agent_type.value,
-                    processing_time=0.0,
-                    metadata={
-                        "synthesis_type": "comprehensive",
-                        "paper_count": len(papers),
-                        "themes": synthesis.get("main_themes", []),
-                        "claim_count": len(synthesis.get("key_claims", [])),
-                    },
-                    reasoning="Synthesized information from multiple papers using theme analysis and claim extraction",
-                )
-
-            else:
-                # Fallback to text response
-                return AgentResponse(
-                    response=response["content"],
-                    sources=[paper["id"] for paper in papers],
-                    confidence=0.7,
-                    agent_type=self.agent_type.value,
-                    processing_time=0.0,
-                )
+            # Use text response
+            return AgentResponse(
+                response=response["content"],
+                sources=[paper["id"] for paper in papers],
+                confidence=0.7,
+                agent_type=self.agent_type.value,
+                processing_time=0.0,
+            )
 
         except Exception as e:
             self.logger.error("Synthesis failed", error=str(e))
@@ -402,36 +379,17 @@ Be thorough but concise, prioritizing the most significant insights."""
             ]
 
             response = await self.call_llm(
-                messages, functions=[self.synthesis_function], temperature=0.1
+                messages, temperature=0.1
             )
 
-            if response["type"] == "function_call":
-                synthesis_data = json.loads(response["arguments"])
-                synthesis = synthesis_data["synthesis"]
-                formatted_response = self._format_synthesis_response(synthesis)
-
-                return AgentResponse(
-                    response=formatted_response,
-                    sources=[paper["id"] for paper in papers],
-                    confidence=synthesis.get("confidence", 0.8),
-                    agent_type=self.agent_type.value,
-                    processing_time=0.0,
-                    metadata={
-                        "synthesis_type": "comprehensive",
-                        "paper_count": len(papers),
-                        "themes": synthesis.get("main_themes", []),
-                    },
-                    reasoning="Comprehensive synthesis covering themes, claims, methods, and findings",
-                )
-            else:
-                return AgentResponse(
-                    response=response["content"],
-                    sources=[paper["id"] for paper in papers],
-                    confidence=0.75,
-                    agent_type=self.agent_type.value,
-                    processing_time=0.0,
-                    metadata={"synthesis_type": "comprehensive"},
-                )
+            return AgentResponse(
+                response=response["content"],
+                sources=[paper["id"] for paper in papers],
+                confidence=0.75,
+                agent_type=self.agent_type.value,
+                processing_time=0.0,
+                metadata={"synthesis_type": "comprehensive"},
+            )
 
         except Exception as e:
             self.logger.error("Comprehensive synthesis failed", error=str(e))

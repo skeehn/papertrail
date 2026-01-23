@@ -1,6 +1,9 @@
-from contextlib import asynccontextmanager
+import sys
+sys.path.insert(0, ".")
 
+from contextlib import asynccontextmanager
 import structlog
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
@@ -8,21 +11,56 @@ from fastapi.responses import JSONResponse
 
 from app.api.v1.api import api_router
 from app.core.config import settings
-from app.core.logging import setup_logging
+from app.core.logging import setup_logging, get_logger
+from app.database import init_database
+from app.core.cache import init_cache
+from app.services.pinecone_store import pinecone_store
+from app.websocket.websocket_manager import websocket_endpoint
 
-# Websocket will be imported when needed
 
+@app.get("/health/detailed")
+async def detailed_health():
+    """Detailed health check including service status"""
+    from app.database import NEO4J_CONNECTED
+
+    health_status = {
+        "status": "healthy",
+        "version": settings.VERSION,
+        "environment": settings.ENVIRONMENT,
+        "services": {
+            "neo4j": "connected" if NEO4J_CONNECTED else "disconnected",
+            "pinecone": "connected" if pinecone_store.is_connected else "disconnected",
+            "redis": "connected",  # Simplified - would need actual check
+        },
+        "timestamp": datetime.utcnow().isoformat(),
+    }
+
+    # Check if any critical services are down
+    critical_services = ["neo4j"]
+    for service in critical_services:
+        if health_status["services"][service] != "connected":
+            health_status["status"] = "degraded"
+
+    return health_status
+
+# Initialize logger
+logger = get_logger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager"""
     # Startup
     setup_logging()
-    logger = structlog.get_logger()
     logger.info("Starting PaperTrail API", version=settings.VERSION)
 
-    # Initialize mock storage for development
-    logger.info("Using mock storage for development")
+    # Initialize cache
+    await init_cache()
+
+    # Initialize database (Neo4j with mock fallback)
+    await init_database()
+
+    # Initialize Pinecone vector store
+    await pinecone_store.connect()
 
     logger.info("PaperTrail API startup complete")
 
@@ -31,10 +69,9 @@ async def lifespan(app: FastAPI):
     # Shutdown
     logger.info("Shutting down PaperTrail API")
 
-
 app = FastAPI(
     title="PaperTrail API",
-    description="Graph-RAG + Multi-Agent System for research synthesis",
+    description="GraphRAG + Multi-Agent System for research synthesis",
     version=settings.VERSION,
     docs_url="/docs" if settings.ENVIRONMENT != "production" else None,
     redoc_url="/redoc" if settings.ENVIRONMENT != "production" else None,
@@ -59,10 +96,8 @@ app.add_middleware(
 # Include API routes
 app.include_router(api_router, prefix="/api/v1")
 
-# WebSocket endpoint (will be added when websocket system is working)
-# from app.websocket.websocket_manager import websocket_endpoint
-# app.add_websocket_route("/ws", websocket_endpoint)
-
+# WebSocket endpoint
+app.add_websocket_route("/ws", websocket_endpoint)
 
 # Health check endpoint
 @app.get("/health")
@@ -74,7 +109,6 @@ async def health_check():
         "environment": settings.ENVIRONMENT,
     }
 
-
 # Root endpoint
 @app.get("/")
 async def root():
@@ -83,8 +117,8 @@ async def root():
         "message": "PaperTrail API",
         "version": settings.VERSION,
         "docs": "/docs" if settings.ENVIRONMENT != "production" else None,
+        "redoc": "/redoc" if settings.ENVIRONMENT != "production" else None,
     }
-
 
 # Global exception handler
 @app.exception_handler(HTTPException)
@@ -98,13 +132,10 @@ async def http_exception_handler(request, exc):
         },
     )
 
-
 @app.exception_handler(Exception)
 async def general_exception_handler(request, exc):
     """Global exception handler"""
-    logger = structlog.get_logger()
     logger.error("Unhandled exception", exc_info=exc)
-
     return JSONResponse(
         status_code=500,
         content={

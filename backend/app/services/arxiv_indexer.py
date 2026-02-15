@@ -9,11 +9,11 @@ from typing import Any, Dict, List, Optional
 from app.core.config import settings
 from app.core.logging import get_logger
 from app.database.neo4j_client import Neo4jClient
-from app.services.pinecone_store import pinecone_store
 from app.services.arxiv_client import arxiv_client
 from app.services.entity_extractor import EntityExtractor
 from app.services.graph_builder import GraphBuilder
 from app.services.pdf_processor import PDFProcessor
+from app.services.pinecone_store import pinecone_store
 
 
 class ProcessingStatus(str, Enum):
@@ -164,10 +164,14 @@ class BatchIndexer:
 
             # Add processing stats as flat properties
             if "processing_stats" in pdf_content:
-                paper_node.update({
-                    "page_count": pdf_content["processing_stats"].get("page_count"),
-                    "text_length": pdf_content["processing_stats"].get("text_length"),
-                })
+                paper_node.update(
+                    {
+                        "page_count": pdf_content["processing_stats"].get("page_count"),
+                        "text_length": pdf_content["processing_stats"].get(
+                            "text_length"
+                        ),
+                    }
+                )
 
             # Use graph builder to create paper and entities
             relationships = []
@@ -195,7 +199,11 @@ class BatchIndexer:
             # Add high-confidence entities to vector store
             for entity in entities:
                 if entity.confidence > 0.7:
-                    entity_type = entity.type.value if hasattr(entity.type, 'value') else str(entity.type)
+                    entity_type = (
+                        entity.type.value
+                        if hasattr(entity.type, "value")
+                        else str(entity.type)
+                    )
                     documents.append(
                         {
                             "id": f"entity_{arxiv_id}_{entity.name}",

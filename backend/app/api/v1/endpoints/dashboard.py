@@ -1,5 +1,7 @@
-from typing import Dict, Any
+from typing import Any, Dict
+
 from fastapi import APIRouter
+
 from app.core.logging import get_logger
 
 router = APIRouter()

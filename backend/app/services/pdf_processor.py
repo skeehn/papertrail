@@ -15,6 +15,7 @@ except ImportError:
 
 try:
     import fitz
+
     FITZ_AVAILABLE = True
 except ImportError:
     fitz = None
@@ -111,7 +112,7 @@ class PDFProcessor:
                 doc.close()
             elif PdfReader:
                 # Fallback to PyPDF2/pypdf
-                with open(file_path, 'rb') as f:
+                with open(file_path, "rb") as f:
                     reader = PdfReader(f)
                     page_count = len(reader.pages)
                     metadata = self._extract_metadata_pypdf(reader)
@@ -119,7 +120,9 @@ class PDFProcessor:
                     sections = self._extract_sections_from_text(full_text)
                     citations = self._extract_citations(full_text)
             else:
-                raise RuntimeError("No PDF library available. Please install pypdf or PyMuPDF.")
+                raise RuntimeError(
+                    "No PDF library available. Please install pypdf or PyMuPDF."
+                )
 
             # Generate paper ID (use filename if no arXiv ID)
             paper_id = (
@@ -221,7 +224,7 @@ class PDFProcessor:
             self.logger.error("arXiv download failed", error=str(e), arxiv_id=arxiv_id)
             raise
 
-    def _extract_metadata(self, doc: fitz.Document) -> Dict[str, Any]:
+    def _extract_metadata(self, doc: "fitz.Document") -> Dict[str, Any]:
         """Extract metadata from PDF"""
         metadata = {}
 
@@ -264,7 +267,7 @@ class PDFProcessor:
 
         return metadata
 
-    def _extract_full_text(self, doc: fitz.Document) -> str:
+    def _extract_full_text(self, doc: "fitz.Document") -> str:
         """Extract full text from PDF"""
         full_text = ""
 
@@ -278,7 +281,7 @@ class PDFProcessor:
 
         return full_text.strip()
 
-    def _extract_sections(self, doc: fitz.Document) -> Dict[str, str]:
+    def _extract_sections(self, doc: "fitz.Document") -> Dict[str, str]:
         """Extract sections from PDF using pattern matching"""
         sections = {}
         full_text = self._extract_full_text(doc)

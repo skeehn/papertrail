@@ -4,8 +4,8 @@ import structlog
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 
-from app.core.logging import get_logger, log_processing_step
 from app.core.config import settings
+from app.core.logging import get_logger, log_processing_step
 from app.models.schemas import (
     PaperListResponse,
     PaperProcessingRequest,
@@ -22,7 +22,9 @@ logger = get_logger("papers")
 # PDF processing - requires PyMuPDF
 try:
     import fitz
+
     from app.services.pdf_processor import PDFProcessor
+
     PDF_PROCESSOR_AVAILABLE = True
 except ImportError:
     fitz = None
@@ -53,15 +55,16 @@ async def upload_paper(
             raise HTTPException(status_code=400, detail="File size exceeds 50MB limit")
 
         # Validate file content is actually a PDF
-        if not content.startswith(b'%PDF'):
+        if not content.startswith(b"%PDF"):
             raise HTTPException(status_code=400, detail="File is not a valid PDF")
 
         if len(content) == 0:
             raise HTTPException(status_code=400, detail="Empty file uploaded")
 
         # Ensure upload directory exists
-        import os
         import json
+        import os
+
         from app.core.config import settings
 
         os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
@@ -135,7 +138,7 @@ async def get_paper(paper_id: str):
         # Ensure required fields are present
         if not paper.get("title"):
             paper["title"] = paper.get("filename", "Untitled Paper")
-        
+
         return PaperResponse(**paper)
 
     except HTTPException:
@@ -154,6 +157,7 @@ async def list_papers(skip: int = 0, limit: int = 20, search: Optional[str] = No
         # #region agent log
         try:
             import json
+
             # Removed debug logging
         except Exception:
             pass
@@ -161,9 +165,9 @@ async def list_papers(skip: int = 0, limit: int = 20, search: Optional[str] = No
 
         # Handle None search parameter properly - empty string means no search filter
         search_param = search if search else None
-        
+
         papers = db_list_papers(skip=skip, limit=limit, search=search_param)
-        
+
         # Bug fix: total should be count of ALL matching papers, not just returned slice
         # Get total count by getting all matching papers (before pagination)
         # This is inefficient but correct until mock_store has a count method
@@ -254,26 +258,45 @@ async def process_paper_background(request: PaperProcessingRequest):
             request.id, 0.1, "Extracting text from PDF", "pdf_extraction"
         )
         log_processing_step("pdf_extraction", request.id)
-        
+
         # Debug logging (only in development)
         if settings.ENVIRONMENT == "development":
             try:
                 import json
                 import os
+
                 debug_log_path = os.path.join(os.getcwd(), ".cursor", "debug.log")
                 os.makedirs(os.path.dirname(debug_log_path), exist_ok=True)
-                with open(debug_log_path, 'a') as f:
-                    f.write(json.dumps({"id": "log_pdf_processor_check", "timestamp": __import__('time').time() * 1000, "location": "papers.py:241", "message": "PDFProcessor availability check", "data": {"pdf_processor_available": PDF_PROCESSOR_AVAILABLE, "has_file_path": bool(request.file_path), "has_arxiv_id": bool(request.arxiv_id), "hypothesisId": "H"}, "sessionId": "debug-session", "runId": "run1"}) + "\n")
+                with open(debug_log_path, "a") as f:
+                    f.write(
+                        json.dumps(
+                            {
+                                "id": "log_pdf_processor_check",
+                                "timestamp": __import__("time").time() * 1000,
+                                "location": "papers.py:241",
+                                "message": "PDFProcessor availability check",
+                                "data": {
+                                    "pdf_processor_available": PDF_PROCESSOR_AVAILABLE,
+                                    "has_file_path": bool(request.file_path),
+                                    "has_arxiv_id": bool(request.arxiv_id),
+                                    "hypothesisId": "H",
+                                },
+                                "sessionId": "debug-session",
+                                "runId": "run1",
+                            }
+                        )
+                        + "\n"
+                    )
             except Exception:
                 pass
-        
+
         if not PDF_PROCESSOR_AVAILABLE or PDFProcessor is None:
             error_msg = "PDF processing is not available. PDFProcessor library is not installed."
             logger.error("PDFProcessor not available", request_id=request.id)
             raise RuntimeError(error_msg)
-        
+
         pdf_processor = PDFProcessor()
-        
+
         if request.file_path:
             # Process local file
             paper_data = await pdf_processor.process_file(request.file_path)
@@ -283,7 +306,11 @@ async def process_paper_background(request: PaperProcessingRequest):
         else:
             # Bug fix: HTTPException doesn't work in background tasks, use ValueError instead
             error_msg = "Either file_path or arxiv_id must be provided"
-            logger.error("Background task validation failed", error=error_msg, request_id=request.id)
+            logger.error(
+                "Background task validation failed",
+                error=error_msg,
+                request_id=request.id,
+            )
             raise ValueError(error_msg)
 
         # Step 2: Extract entities and relationships
@@ -295,15 +322,13 @@ async def process_paper_background(request: PaperProcessingRequest):
         )
         log_processing_step("entity_extraction", request.id)
         entity_extractor = EntityExtractor()
-        
+
         text_content = paper_data.get("text", "")
         if not text_content:
             raise ValueError("PDF processing did not extract any text content")
-        
+
         entities, relationships = (
-            await entity_extractor.extract_entities_and_relationships(
-                text_content
-            )
+            await entity_extractor.extract_entities_and_relationships(text_content)
         )
 
         # Step 3: Build knowledge graph
@@ -321,7 +346,11 @@ async def process_paper_background(request: PaperProcessingRequest):
         log_processing_step("vector_store", request.id)
         from app.database.faiss_store import add_documents_to_store
 
-        paper_id_for_store = paper_data.get("arxiv_id") or paper_data.get("id") or str(__import__('uuid').uuid4())
+        paper_id_for_store = (
+            paper_data.get("arxiv_id")
+            or paper_data.get("id")
+            or str(__import__("uuid").uuid4())
+        )
         add_documents_to_store(
             [
                 {
@@ -340,7 +369,9 @@ async def process_paper_background(request: PaperProcessingRequest):
         await processing_notifier.complete_processing(
             request.id,
             {
-                "paper_id": paper_data.get("arxiv_id") or paper_data.get("id") or request.id,
+                "paper_id": paper_data.get("arxiv_id")
+                or paper_data.get("id")
+                or request.id,
                 "entities_extracted": len(entities),
                 "relationships_extracted": len(relationships),
                 "graph_result": result,

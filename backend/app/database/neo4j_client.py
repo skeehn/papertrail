@@ -108,7 +108,7 @@ class GraphOperations:
             "CREATE INDEX entity_type IF NOT EXISTS FOR (e:Entity) ON (e.type)",
             "CREATE INDEX paper_title IF NOT EXISTS FOR (p:Paper) ON (p.title)",
         ]
-        
+
         for index_query in indexes:
             try:
                 session.run(index_query)
@@ -121,7 +121,7 @@ class GraphOperations:
     def create_paper_node(session: Session, paper_data: Dict[str, Any]) -> str:
         """Create a paper node in the graph"""
         GraphOperations._ensure_indexes(session)
-        
+
         query = """
         MERGE (p:Paper {arxiv_id: $arxiv_id})
         SET p += $properties
@@ -138,13 +138,11 @@ class GraphOperations:
             "created_at": paper_data.get("created_at"),
             "updated_at": paper_data.get("updated_at"),
         }
-        
+
         arxiv_id_value = paper_data.get("arxiv_id") or paper_data.get("id")
         if not arxiv_id_value:
             raise ValueError("paper_data must contain either 'arxiv_id' or 'id'")
-        result = session.run(
-            query, arxiv_id=arxiv_id_value, properties=properties
-        )
+        result = session.run(query, arxiv_id=arxiv_id_value, properties=properties)
         return result.single()["paper_id"]
 
     @staticmethod
@@ -230,7 +228,7 @@ class GraphOperations:
     ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
         """Get subgraph around an entity, returns (nodes, edges) - optimized with indexes"""
         GraphOperations._ensure_indexes(session)
-        
+
         # Optimized query using index on entity name
         query = """
         MATCH (e:Entity {name: $entity_name})
@@ -258,7 +256,7 @@ class GraphOperations:
 
         result = session.run(query, entity_name=entity_name, depth=depth)
         record = result.single()
-        
+
         if not record:
             # If no results, return at least the entity itself
             query_entity = """
@@ -278,7 +276,7 @@ class GraphOperations:
 
         nodes = record["nodes"] or []
         edges = record["edges"] or []
-        
+
         # Remove duplicates based on id
         seen_nodes = {}
         unique_nodes = []
@@ -287,7 +285,7 @@ class GraphOperations:
             if node_id and node_id not in seen_nodes:
                 seen_nodes[node_id] = True
                 unique_nodes.append(node)
-        
+
         # Remove duplicate edges
         seen_edges = set()
         unique_edges = []
@@ -296,7 +294,7 @@ class GraphOperations:
             if edge_key not in seen_edges:
                 seen_edges.add(edge_key)
                 unique_edges.append(edge)
-        
+
         return (unique_nodes, unique_edges)
 
     @staticmethod
@@ -306,7 +304,7 @@ class GraphOperations:
     ) -> List[Dict[str, Any]]:
         """Search for entities by name - optimized with index"""
         GraphOperations._ensure_indexes(session)
-        
+
         # Use index on entity name for faster searches
         if entity_type:
             query_text = """
@@ -390,7 +388,9 @@ def get_related_papers(paper_id: str, limit: int = 10) -> List[Dict[str, Any]]:
     return GraphOperations.get_related_papers(paper_id, limit)
 
 
-def get_entity_subgraph(entity_name: str, depth: int = 2) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+def get_entity_subgraph(
+    entity_name: str, depth: int = 2
+) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
     """Get entity subgraph, returns (nodes, edges)"""
     return GraphOperations.get_entity_subgraph(entity_name, depth)
 

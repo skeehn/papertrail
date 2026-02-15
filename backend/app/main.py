@@ -1,50 +1,27 @@
 import sys
+
 sys.path.insert(0, ".")
 
 from contextlib import asynccontextmanager
-import structlog
+from datetime import datetime
 
+import structlog
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.v1.api import api_router
-from app.core.config import settings
-from app.core.logging import setup_logging, get_logger
-from app.database import init_database
 from app.core.cache import init_cache
+from app.core.config import settings
+from app.core.logging import get_logger, setup_logging
+from app.database import init_database
 from app.services.pinecone_store import pinecone_store
 from app.websocket.websocket_manager import websocket_endpoint
 
-
-@app.get("/health/detailed")
-async def detailed_health():
-    """Detailed health check including service status"""
-    from app.database import NEO4J_CONNECTED
-
-    health_status = {
-        "status": "healthy",
-        "version": settings.VERSION,
-        "environment": settings.ENVIRONMENT,
-        "services": {
-            "neo4j": "connected" if NEO4J_CONNECTED else "disconnected",
-            "pinecone": "connected" if pinecone_store.is_connected else "disconnected",
-            "redis": "connected",  # Simplified - would need actual check
-        },
-        "timestamp": datetime.utcnow().isoformat(),
-    }
-
-    # Check if any critical services are down
-    critical_services = ["neo4j"]
-    for service in critical_services:
-        if health_status["services"][service] != "connected":
-            health_status["status"] = "degraded"
-
-    return health_status
-
 # Initialize logger
 logger = get_logger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -68,6 +45,7 @@ async def lifespan(app: FastAPI):
 
     # Shutdown
     logger.info("Shutting down PaperTrail API")
+
 
 app = FastAPI(
     title="PaperTrail API",
@@ -99,6 +77,7 @@ app.include_router(api_router, prefix="/api/v1")
 # WebSocket endpoint
 app.add_websocket_route("/ws", websocket_endpoint)
 
+
 # Health check endpoint
 @app.get("/health")
 async def health_check():
@@ -108,6 +87,7 @@ async def health_check():
         "version": settings.VERSION,
         "environment": settings.ENVIRONMENT,
     }
+
 
 # Root endpoint
 @app.get("/")
@@ -120,6 +100,35 @@ async def root():
         "redoc": "/redoc" if settings.ENVIRONMENT != "production" else None,
     }
 
+
+@app.get("/health/detailed")
+async def detailed_health():
+    """Detailed health check including service status"""
+    from app.database import NEO4J_CONNECTED
+
+    health_status = {
+        "status": "healthy",
+        "version": settings.VERSION,
+        "environment": settings.ENVIRONMENT,
+        "services": {
+            "neo4j": "connected" if NEO4J_CONNECTED else "disconnected",
+            "pinecone": (
+                "connected" if pinecone_store.is_connected else "disconnected"
+            ),
+            "redis": "connected",  # Simplified - would need actual check
+        },
+        "timestamp": datetime.utcnow().isoformat(),
+    }
+
+    # Check if any critical services are down
+    critical_services = ["neo4j"]
+    for service in critical_services:
+        if health_status["services"][service] != "connected":
+            health_status["status"] = "degraded"
+
+    return health_status
+
+
 # Global exception handler
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request, exc):
@@ -131,6 +140,7 @@ async def http_exception_handler(request, exc):
             "status_code": exc.status_code,
         },
     )
+
 
 @app.exception_handler(Exception)
 async def general_exception_handler(request, exc):

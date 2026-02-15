@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import openai
 
-from app.agents.base_agent import AgentType, BaseAgent
+from app.agents.base_agent import AgentResponse, AgentType, BaseAgent
 from app.core.config import settings
 from app.core.logging import get_logger
 from app.database.neo4j_client import Neo4jClient
@@ -72,8 +72,7 @@ Focus on accuracy and provide sources for all claims.
 
         try:
             result = await self.answer_complex_query(
-                query=task.query,
-                context=task.context
+                query=task.query, context=task.context
             )
 
             sources = []

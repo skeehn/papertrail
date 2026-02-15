@@ -1,8 +1,9 @@
 """Pinecone vector store for paper embeddings"""
 
-import structlog
-from typing import Any, Dict, List, Optional
 from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+import structlog
 
 from app.core.config import settings
 from app.core.logging import get_logger
@@ -11,6 +12,7 @@ logger = get_logger("pinecone")
 
 try:
     from pinecone import Pinecone, ServerlessSpec
+
     PINECONE_AVAILABLE = True
 except ImportError:
     PINECONE_AVAILABLE = False
@@ -35,9 +37,7 @@ class PineconeStore:
             self._client = Pinecone(api_key=settings.PINECONE_API_KEY)
 
             if settings.PINECONE_HOST:
-                self._index = self._client.Index(
-                    host=settings.PINECONE_HOST
-                )
+                self._index = self._client.Index(host=settings.PINECONE_HOST)
             elif settings.PINECONE_INDEX_NAME:
                 self._index = self._client.Index(settings.PINECONE_INDEX_NAME)
 
@@ -45,7 +45,7 @@ class PineconeStore:
             logger.info(
                 "Connected to Pinecone",
                 index=settings.PINECONE_INDEX_NAME,
-                host=settings.PINECONE_HOST
+                host=settings.PINECONE_HOST,
             )
             return True
 
@@ -69,7 +69,7 @@ class PineconeStore:
     async def add_documents(
         self,
         documents: List[Dict[str, Any]],
-        embeddings: Optional[List[List[float]]] = None
+        embeddings: Optional[List[List[float]]] = None,
     ) -> List[str]:
         """Add documents to Pinecone"""
         if not self.is_connected:
@@ -85,7 +85,8 @@ class PineconeStore:
             if not embeddings:
                 try:
                     from sentence_transformers import SentenceTransformer
-                    model = SentenceTransformer('all-MiniLM-L6-v2')
+
+                    model = SentenceTransformer("all-MiniLM-L6-v2")
                     texts = [doc.get("text", "")[:1000] for doc in documents]
                     raw_embeddings = model.encode(texts, show_progress_bar=False)
                     embeddings = [emb.tolist() for emb in raw_embeddings]
@@ -114,11 +115,13 @@ class PineconeStore:
                     "created_at": datetime.utcnow().isoformat(),
                 }
 
-                vectors.append({
-                    "id": doc_id,
-                    "values": embedding,
-                    "metadata": metadata,
-                })
+                vectors.append(
+                    {
+                        "id": doc_id,
+                        "values": embedding,
+                        "metadata": metadata,
+                    }
+                )
 
             if vectors:
                 self._index.upsert(vectors=vectors, namespace="papers")
@@ -147,16 +150,23 @@ class PineconeStore:
             if query_text and not query_embedding:
                 try:
                     from sentence_transformers import SentenceTransformer
-                    model = SentenceTransformer('all-MiniLM-L6-v2')
-                    raw_embedding = model.encode([query_text], show_progress_bar=False).tolist()[0]
+
+                    model = SentenceTransformer("all-MiniLM-L6-v2")
+                    raw_embedding = model.encode(
+                        [query_text], show_progress_bar=False
+                    ).tolist()[0]
                     # Pad to target dimension
                     target_dimension = 1024
                     if len(raw_embedding) < target_dimension:
-                        query_embedding = raw_embedding + [0.0] * (target_dimension - len(raw_embedding))
+                        query_embedding = raw_embedding + [0.0] * (
+                            target_dimension - len(raw_embedding)
+                        )
                     else:
                         query_embedding = raw_embedding[:target_dimension]
                 except ImportError:
-                    logger.error("sentence-transformers not available for query embedding")
+                    logger.error(
+                        "sentence-transformers not available for query embedding"
+                    )
                     return []
 
             if not query_embedding:
@@ -178,12 +188,14 @@ class PineconeStore:
 
             matches = []
             for match in results.get("matches", []):
-                matches.append({
-                    "id": match.get("id"),
-                    "score": match.get("score", 0.0),
-                    "metadata": match.get("metadata", {}),
-                    "text": match.get("metadata", {}).get("text", ""),
-                })
+                matches.append(
+                    {
+                        "id": match.get("id"),
+                        "score": match.get("score", 0.0),
+                        "metadata": match.get("metadata", {}),
+                        "text": match.get("metadata", {}).get("text", ""),
+                    }
+                )
 
             logger.info(f"Found {len(matches)} similar documents")
             return matches
@@ -228,9 +240,7 @@ class PineconeStore:
             return None
 
     async def list_documents(
-        self,
-        limit: int = 100,
-        offset: int = 0
+        self, limit: int = 100, offset: int = 0
     ) -> List[Dict[str, Any]]:
         """List all documents"""
         if not self.is_connected:
@@ -250,11 +260,13 @@ class PineconeStore:
                 }
                 results = self._index.query(**query_params)
                 for match in results.get("matches", []):
-                    documents.append({
-                        "id": match.get("id"),
-                        "metadata": match.get("metadata", {}),
-                        "score": match.get("score", 0.0),
-                    })
+                    documents.append(
+                        {
+                            "id": match.get("id"),
+                            "metadata": match.get("metadata", {}),
+                            "score": match.get("score", 0.0),
+                        }
+                    )
 
             return documents
 

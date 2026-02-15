@@ -1,8 +1,9 @@
 """Integration tests for graph building"""
 
+from unittest.mock import MagicMock, patch
+
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import patch, MagicMock
 
 from app.main import app
 
@@ -40,7 +41,7 @@ class TestGraphBuilding:
                 },
             ],
         )
-        
+
         # Query graph
         response = client.post(
             "/api/v1/graph/query",
@@ -49,7 +50,7 @@ class TestGraphBuilding:
                 "depth": 2,
             },
         )
-        
+
         assert response.status_code == 200
         data = response.json()
         assert len(data["nodes"]) > 0
@@ -68,9 +69,9 @@ class TestGraphBuilding:
                 "CITES": 30,
             },
         }
-        
+
         response = client.get("/api/v1/graph/statistics")
-        
+
         assert response.status_code == 200
         data = response.json()
         assert "statistics" in data

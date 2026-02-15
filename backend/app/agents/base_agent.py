@@ -10,8 +10,8 @@ import structlog
 
 from app.core.config import settings
 from app.core.logging import get_logger, log_agent_activity
-from app.services.pinecone_store import pinecone_store
 from app.database.neo4j_client import neo4j_client
+from app.services.pinecone_store import pinecone_store
 
 
 class AgentType(str, Enum):
@@ -223,13 +223,21 @@ class BaseAgent(ABC):
                 )
 
                 for result in search_results:
-                    if result.get("metadata", {}).get("type") == "paper" or result.get("id", "").startswith("paper_"):
+                    if result.get("metadata", {}).get("type") == "paper" or result.get(
+                        "id", ""
+                    ).startswith("paper_"):
                         relevant_papers.append(
                             {
-                                "id": result.get("metadata", {}).get("arxiv_id", result.get("id", "")),
+                                "id": result.get("metadata", {}).get(
+                                    "arxiv_id", result.get("id", "")
+                                ),
                                 "title": result.get("metadata", {}).get("title", ""),
-                                "authors": result.get("metadata", {}).get("authors", ""),
-                                "abstract": result.get("metadata", {}).get("abstract", ""),
+                                "authors": result.get("metadata", {}).get(
+                                    "authors", ""
+                                ),
+                                "abstract": result.get("metadata", {}).get(
+                                    "abstract", ""
+                                ),
                                 "similarity_score": result.get("score", 0.0),
                             }
                         )

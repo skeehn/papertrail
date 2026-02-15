@@ -5,8 +5,8 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from app.core.logging import get_logger
 from app.core.cache import cached
+from app.core.logging import get_logger
 from app.services.trend_analyzer import (
     analyze_trends,
     compare_entity_trends,
@@ -73,6 +73,7 @@ async def complex_reasoning(request: ComplexQueryRequest) -> Dict[str, Any]:
     """
     try:
         from app.agents.reasoning_agent import ReasoningAgent
+
         agent = ReasoningAgent()
         result = await agent.answer_complex_query(request.query, request.context)
         return result

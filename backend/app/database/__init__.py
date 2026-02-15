@@ -1,7 +1,8 @@
 """Database module with Neo4j support and fallback to mock store"""
 
-import structlog
 from typing import Any, Dict, List, Optional
+
+import structlog
 
 from app.core.config import settings
 from app.core.logging import get_logger
@@ -32,8 +33,7 @@ def get_paper_by_id(paper_id: str) -> Optional[Dict[str, Any]]:
         try:
             with neo4j_client.driver.session() as session:
                 result = session.run(
-                    "MATCH (p:Paper {arxiv_id: $id}) RETURN p LIMIT 1",
-                    id=paper_id
+                    "MATCH (p:Paper {arxiv_id: $id}) RETURN p LIMIT 1", id=paper_id
                 )
                 record = result.single()
                 if record:
@@ -46,7 +46,9 @@ def get_paper_by_id(paper_id: str) -> Optional[Dict[str, Any]]:
     return mock_store.get_paper(paper_id)
 
 
-def list_papers(skip: int = 0, limit: int = 20, search: str = None) -> List[Dict[str, Any]]:
+def list_papers(
+    skip: int = 0, limit: int = 20, search: str = None
+) -> List[Dict[str, Any]]:
     """List papers from Neo4j or mock store"""
     if NEO4J_CONNECTED and search:
         try:
@@ -62,7 +64,7 @@ def list_papers(skip: int = 0, limit: int = 20, search: str = None) -> List[Dict
                     """,
                     search=search,
                     skip=skip,
-                    limit=limit
+                    limit=limit,
                 )
                 papers = []
                 for record in result:
@@ -85,7 +87,7 @@ def list_papers(skip: int = 0, limit: int = 20, search: str = None) -> List[Dict
                     LIMIT $limit
                     """,
                     skip=skip,
-                    limit=limit
+                    limit=limit,
                 )
                 papers = []
                 for record in result:
@@ -105,8 +107,7 @@ def delete_paper(paper_id: str) -> bool:
         try:
             with neo4j_client.driver.session() as session:
                 result = session.run(
-                    "MATCH (p:Paper {arxiv_id: $id}) DETACH DELETE p",
-                    id=paper_id
+                    "MATCH (p:Paper {arxiv_id: $id}) DETACH DELETE p", id=paper_id
                 )
                 return True
         except Exception as e:
@@ -125,7 +126,7 @@ def get_paper_entities(paper_id: str) -> List[Dict[str, Any]]:
                     MATCH (p:Paper {arxiv_id: $id})-[:MENTIONS]->(e:Entity)
                     RETURN e
                     """,
-                    id=paper_id
+                    id=paper_id,
                 )
                 entities = []
                 for record in result:
@@ -152,7 +153,7 @@ def get_related_papers(paper_id: str, limit: int = 10) -> List[Dict[str, Any]]:
                     RETURN p2
                     """,
                     id=paper_id,
-                    limit=limit
+                    limit=limit,
                 )
                 papers = []
                 for record in result:
@@ -191,7 +192,7 @@ def store_paper(paper_data: dict) -> str:
                     publication_date=paper_data.get("publication_date"),
                     journal=paper_data.get("journal"),
                     doi=paper_data.get("doi"),
-                    created_at=paper_data.get("created_at")
+                    created_at=paper_data.get("created_at"),
                 )
                 return paper_id
         except Exception as e:
@@ -218,7 +219,7 @@ def store_entities(paper_id: str, entities: list):
                         name=entity.get("name"),
                         type=entity.get("type", "Entity"),
                         confidence=entity.get("confidence", 0.0),
-                        paper_id=paper_id
+                        paper_id=paper_id,
                     )
                 return
         except Exception as e:
@@ -245,7 +246,7 @@ def store_relationships(paper_id: str, relationships: list):
                         target=rel.get("target"),
                         rel_type=rel.get("type", "RELATED_TO"),
                         confidence=rel.get("confidence", 0.0),
-                        paper_id=paper_id
+                        paper_id=paper_id,
                     )
                 return
         except Exception as e:
@@ -285,7 +286,7 @@ def get_graph_statistics() -> Dict[str, Any]:
                     "relationship_count": total_rels,
                     "node_types": node_types,
                     "relationship_types": rel_types,
-                    "source": "neo4j"
+                    "source": "neo4j",
                 }
         except Exception as e:
             logger.error(f"Failed to get graph stats from Neo4j: {e}")
@@ -298,13 +299,13 @@ def get_graph_statistics() -> Dict[str, Any]:
             "Memory": len([k for k in mock_store.memories]),
             "Paper": len(mock_store.papers),
             "Entity": len(mock_store.entities),
-            "Concept": len(set(e.get("type") for e in mock_store.entities.values()))
+            "Concept": len(set(e.get("type") for e in mock_store.entities.values())),
         },
         "relationship_types": {
             "MENTIONS": len(mock_store.entities) * 2,
             "RELATES_TO": len(mock_store.relationships),
             "AUTHORED_BY": len(mock_store.papers) * 2,
-            "CITES": len(mock_store.papers)
+            "CITES": len(mock_store.papers),
         },
-        "source": "mock_store"
+        "source": "mock_store",
     }

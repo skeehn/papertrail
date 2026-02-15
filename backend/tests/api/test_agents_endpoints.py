@@ -1,8 +1,9 @@
 """Tests for agents API endpoints"""
 
+from unittest.mock import AsyncMock, patch
+
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import patch, AsyncMock
 
 from app.main import app
 
@@ -16,16 +17,18 @@ class TestAgentQuery:
     def test_query_synthesizer_agent(self, mock_orchestrator_class):
         """Test querying synthesizer agent"""
         mock_orchestrator = mock_orchestrator_class.return_value
-        mock_orchestrator.query_agent = AsyncMock(return_value={
-            "response": "Test response",
-            "sources": [],
-            "confidence": 0.9,
-            "agent_type": "synthesizer",
-            "processing_time": 1.5,
-            "metadata": {},
-            "reasoning": "Test reasoning",
-        })
-        
+        mock_orchestrator.query_agent = AsyncMock(
+            return_value={
+                "response": "Test response",
+                "sources": [],
+                "confidence": 0.9,
+                "agent_type": "synthesizer",
+                "processing_time": 1.5,
+                "metadata": {},
+                "reasoning": "Test reasoning",
+            }
+        )
+
         response = client.post(
             "/api/v1/agents/query",
             json={
@@ -34,7 +37,7 @@ class TestAgentQuery:
                 "paper_ids": [],
             },
         )
-        
+
         assert response.status_code == 200
         data = response.json()
         assert data["agent_type"] == "synthesizer"
@@ -44,16 +47,18 @@ class TestAgentQuery:
     def test_query_critic_agent(self, mock_orchestrator_class):
         """Test querying critic agent"""
         mock_orchestrator = mock_orchestrator_class.return_value
-        mock_orchestrator.query_agent = AsyncMock(return_value={
-            "response": "Critic analysis",
-            "sources": [],
-            "confidence": 0.85,
-            "agent_type": "critic",
-            "processing_time": 2.0,
-            "metadata": {},
-            "reasoning": None,
-        })
-        
+        mock_orchestrator.query_agent = AsyncMock(
+            return_value={
+                "response": "Critic analysis",
+                "sources": [],
+                "confidence": 0.85,
+                "agent_type": "critic",
+                "processing_time": 2.0,
+                "metadata": {},
+                "reasoning": None,
+            }
+        )
+
         response = client.post(
             "/api/v1/agents/query",
             json={
@@ -62,7 +67,7 @@ class TestAgentQuery:
                 "paper_ids": [],
             },
         )
-        
+
         assert response.status_code == 200
         data = response.json()
         assert data["agent_type"] == "critic"
@@ -77,7 +82,7 @@ class TestAgentQuery:
                 "paper_ids": [],
             },
         )
-        
+
         assert response.status_code == 500 or response.status_code == 400
 
 
@@ -89,7 +94,7 @@ class TestMultiAgentWorkflow:
         """Test sequential multi-agent workflow"""
         mock_orchestrator = mock_orchestrator_class.return_value
         mock_orchestrator.execute_workflow = AsyncMock(return_value=[])
-        
+
         response = client.post(
             "/api/v1/agents/multi-agent",
             json={
@@ -99,7 +104,7 @@ class TestMultiAgentWorkflow:
                 "paper_ids": [],
             },
         )
-        
+
         assert response.status_code == 200
         data = response.json()
         assert "workflow_id" in data
@@ -111,7 +116,7 @@ class TestAgentTypes:
     def test_get_agent_types(self):
         """Test getting available agent types"""
         response = client.get("/api/v1/agents/types")
-        
+
         assert response.status_code == 200
         data = response.json()
         assert "agent_types" in data
@@ -120,7 +125,7 @@ class TestAgentTypes:
     def test_get_agent_capabilities(self):
         """Test getting agent capabilities"""
         response = client.get("/api/v1/agents/synthesizer/capabilities")
-        
+
         assert response.status_code == 200
         data = response.json()
         assert "agent_type" in data

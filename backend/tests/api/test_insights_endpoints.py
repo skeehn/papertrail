@@ -1,8 +1,9 @@
 """Tests for insights API endpoints"""
 
+from unittest.mock import AsyncMock, patch
+
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import patch, AsyncMock
 
 from app.main import app
 
@@ -21,7 +22,7 @@ class TestComplexReasoning:
             "sources": [],
             "confidence": 0.9,
         }
-        
+
         response = client.post(
             "/api/v1/insights/reasoning",
             json={
@@ -29,7 +30,7 @@ class TestComplexReasoning:
                 "context": None,
             },
         )
-        
+
         assert response.status_code == 200
         data = response.json()
         assert "answer" in data or "response" in data
@@ -47,7 +48,7 @@ class TestTrendAnalysis:
             "growth_rate": 50.0,
             "summary": {},
         }
-        
+
         response = client.post(
             "/api/v1/insights/trends/analyze",
             json={
@@ -55,7 +56,7 @@ class TestTrendAnalysis:
                 "time_window_years": 5,
             },
         )
-        
+
         assert response.status_code == 200
         data = response.json()
         assert "entity_name" in data or "trend_data" in data
@@ -70,9 +71,9 @@ class TestTrendAnalysis:
                 "mention_count": 100,
             }
         ]
-        
+
         response = client.get("/api/v1/insights/trends/emerging?lookback_months=12")
-        
+
         assert response.status_code == 200
         data = response.json()
         assert isinstance(data, list)
@@ -86,9 +87,9 @@ class TestTrendAnalysis:
                 "mention_count": 200,
             }
         ]
-        
+
         response = client.get("/api/v1/insights/trends/trending?recent_months=6")
-        
+
         assert response.status_code == 200
         data = response.json()
         assert isinstance(data, list)
@@ -100,7 +101,7 @@ class TestTrendAnalysis:
             "entities": ["Entity1", "Entity2"],
             "comparison": {},
         }
-        
+
         response = client.post(
             "/api/v1/insights/trends/compare",
             json={
@@ -108,7 +109,7 @@ class TestTrendAnalysis:
                 "time_window_years": 5,
             },
         )
-        
+
         assert response.status_code == 200
         data = response.json()
         assert "entities" in data or "comparison" in data
@@ -125,9 +126,9 @@ class TestResearchSummary:
         mock_trending.return_value = []
         mock_emerging.return_value = []
         mock_analyze.return_value = {"summary": {}}
-        
+
         response = client.get("/api/v1/insights/summary")
-        
+
         assert response.status_code == 200
         data = response.json()
         assert "trending_now" in data or "emerging_topics" in data

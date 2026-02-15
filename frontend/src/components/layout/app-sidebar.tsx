@@ -122,16 +122,20 @@ export function AppSidebar() {
         
         // Add current conversation if it exists
         if (currentMessages.length > 0 && currentConvId) {
-          const firstMessage = currentMessages[0]
-          const lastMessage = currentMessages[currentMessages.length - 1]
-          const title = typeof firstMessage.content === 'string' 
-            ? firstMessage.content.slice(0, 50) 
+          const firstMessage = currentMessages[0] as any
+          const lastMessage = currentMessages[currentMessages.length - 1] as any
+          // Extract content from parts (AI SDK v5) or legacy content field
+          const messageContent = typeof firstMessage.content === 'string'
+            ? firstMessage.content
+            : firstMessage.parts?.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('') || ''
+          const title = messageContent
+            ? messageContent.slice(0, 50)
             : 'New Conversation'
           
           convs.push({
             id: currentConvId,
             title: title || 'New Conversation',
-            timestamp: lastMessage.timestamp || Date.now(),
+            timestamp: lastMessage.timestamp || lastMessage.createdAt || Date.now(),
             messageCount: currentMessages.length
           })
         }

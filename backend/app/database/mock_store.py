@@ -36,7 +36,9 @@ class MockPaperStore:
                     self.entities = data.get("entities", {})
                     self.relationships = data.get("relationships", {})
                     self.memories = data.get("memories", [])
-                    logger.info(f"Loaded {len(self.memories)} memories from {self.data_file}")
+                    logger.info(
+                        f"Loaded {len(self.memories)} memories from {self.data_file}"
+                    )
         except Exception as e:
             logger.warning(f"Failed to load data: {e}")
 

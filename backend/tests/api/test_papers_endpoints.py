@@ -1,10 +1,11 @@
 """Tests for papers API endpoints"""
 
+import os
+import tempfile
+from unittest.mock import MagicMock, patch
+
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import patch, MagicMock
-import tempfile
-import os
 
 from app.main import app
 
@@ -31,9 +32,9 @@ def sample_pdf_file():
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as f:
         f.write(pdf_content)
         temp_path = f.name
-    
+
     yield temp_path
-    
+
     # Cleanup
     if os.path.exists(temp_path):
         os.unlink(temp_path)
@@ -49,7 +50,7 @@ class TestPaperUpload:
                 "/api/v1/papers/upload",
                 files={"file": ("test.pdf", f, "application/pdf")},
             )
-        
+
         assert response.status_code == 200
         data = response.json()
         assert "message" in data
@@ -62,7 +63,7 @@ class TestPaperUpload:
             "/api/v1/papers/upload",
             files={"file": ("test.txt", b"not a pdf", "text/plain")},
         )
-        
+
         assert response.status_code == 400
         assert "PDF" in response.json()["detail"]
 
@@ -72,7 +73,7 @@ class TestPaperUpload:
             "/api/v1/papers/upload",
             files={"file": ("empty.pdf", b"", "application/pdf")},
         )
-        
+
         assert response.status_code == 400
 
     def test_upload_file_too_large(self):
@@ -82,7 +83,7 @@ class TestPaperUpload:
             "/api/v1/papers/upload",
             files={"file": ("large.pdf", large_content, "application/pdf")},
         )
-        
+
         assert response.status_code == 400
 
 
@@ -101,7 +102,7 @@ class TestPaperList:
             "skip": 0,
             "limit": 20,
         }
-        
+
         response = client.get("/api/v1/papers/")
         assert response.status_code == 200
         data = response.json()
@@ -130,7 +131,7 @@ class TestPaperGet:
             "title": "Test Paper",
             "authors": ["Author"],
         }
-        
+
         response = client.get("/api/v1/papers/test-123")
         assert response.status_code == 200
         data = response.json()
@@ -149,7 +150,7 @@ class TestPaperDelete:
     def test_delete_paper_success(self, mock_delete):
         """Test successful paper deletion"""
         mock_delete.return_value = True
-        
+
         response = client.delete("/api/v1/papers/test-123")
         assert response.status_code == 200
         assert "message" in response.json()

@@ -4,8 +4,8 @@ import structlog
 from fastapi import APIRouter, HTTPException, Query
 
 from app.core.logging import get_logger
-from app.services.pinecone_store import pinecone_store
 from app.models.schemas import SearchRequest, SearchResponse
+from app.services.pinecone_store import pinecone_store
 
 router = APIRouter()
 logger = get_logger("search")

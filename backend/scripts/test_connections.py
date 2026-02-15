@@ -2,6 +2,7 @@
 """
 Quick connection test for Neo4j and OpenRouter
 """
+
 import os
 import sys
 

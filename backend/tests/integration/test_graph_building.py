@@ -1,8 +1,9 @@
 """Integration tests for graph building"""
 
+from unittest.mock import MagicMock, patch
+
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import patch, MagicMock
 
 from app.main import app
 
@@ -40,7 +41,7 @@ class TestGraphBuilding:
                 },
             ],
         )
-        
+
         # Query graph
         response = client.post(
             "/api/v1/graph/query",
@@ -49,13 +50,13 @@ class TestGraphBuilding:
                 "depth": 2,
             },
         )
-        
+
         assert response.status_code == 200
         data = response.json()
         assert len(data["nodes"]) > 0
         assert len(data["edges"]) > 0
 
-    @patch("app.api.v1.endpoints.graph.get_graph_statistics")
+    @patch("app.database.neo4j_client.get_graph_statistics")
     def test_graph_statistics_flow(self, mock_get_stats):
         """Test getting graph statistics"""
         mock_get_stats.return_value = {
@@ -68,9 +69,9 @@ class TestGraphBuilding:
                 "CITES": 30,
             },
         }
-        
+
         response = client.get("/api/v1/graph/statistics")
-        
+
         assert response.status_code == 200
         data = response.json()
         assert "statistics" in data

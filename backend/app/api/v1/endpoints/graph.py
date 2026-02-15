@@ -4,8 +4,8 @@ from typing import List, Optional
 import structlog
 from fastapi import APIRouter, HTTPException, Query
 
-from app.core.logging import get_logger, log_graph_operation
 from app.core.cache import cached
+from app.core.logging import get_logger, log_graph_operation
 from app.database.mock_store import mock_store
 from app.database.neo4j_client import get_entity_subgraph
 from app.models.schemas import GraphQueryRequest, GraphResponse
@@ -31,27 +31,31 @@ async def query_graph(request: GraphQueryRequest):
             # Use real Neo4j query
             try:
                 nodes, edges = get_entity_subgraph(request.entity_name, request.depth)
-                
+
                 # Format nodes for response
                 formatted_nodes = []
                 for node in nodes:
-                    formatted_nodes.append({
-                        "id": node.get("id", ""),
-                        "label": node.get("label", ""),
-                        "type": node.get("type", "Entity"),
-                        "properties": node.get("properties", {})
-                    })
-                
+                    formatted_nodes.append(
+                        {
+                            "id": node.get("id", ""),
+                            "label": node.get("label", ""),
+                            "type": node.get("type", "Entity"),
+                            "properties": node.get("properties", {}),
+                        }
+                    )
+
                 # Format edges for response
                 formatted_edges = []
                 for edge in edges:
-                    formatted_edges.append({
-                        "source": edge.get("source", ""),
-                        "target": edge.get("target", ""),
-                        "type": edge.get("type", "RELATED_TO"),
-                        "properties": edge.get("properties", {})
-                    })
-                
+                    formatted_edges.append(
+                        {
+                            "source": edge.get("source", ""),
+                            "target": edge.get("target", ""),
+                            "type": edge.get("type", "RELATED_TO"),
+                            "properties": edge.get("properties", {}),
+                        }
+                    )
+
                 return GraphResponse(nodes=formatted_nodes, edges=formatted_edges)
             except Exception as e:
                 logger.warning(f"Neo4j query failed, using fallback: {e}")
@@ -63,17 +67,20 @@ async def query_graph(request: GraphQueryRequest):
             # For now, return entities related to the paper
             try:
                 from app.database import get_paper_entities
+
                 entities = get_paper_entities(request.paper_id)
-                
+
                 nodes = []
                 for entity in entities:
-                    nodes.append({
-                        "id": entity.get("name", ""),
-                        "label": entity.get("name", ""),
-                        "type": entity.get("type", "Entity"),
-                        "properties": entity
-                    })
-                
+                    nodes.append(
+                        {
+                            "id": entity.get("name", ""),
+                            "label": entity.get("name", ""),
+                            "type": entity.get("type", "Entity"),
+                            "properties": entity,
+                        }
+                    )
+
                 return GraphResponse(nodes=nodes, edges=[])
             except Exception as e:
                 logger.warning(f"Paper entities query failed: {e}")
@@ -99,12 +106,13 @@ async def get_graph_statistics_endpoint():
         # Try to get real statistics from Neo4j
         try:
             from app.database.neo4j_client import get_graph_statistics
+
             stats = get_graph_statistics()
-            
+
             # Format statistics
             node_count = sum(stats.get("nodes", {}).values())
             relationship_count = sum(stats.get("relationships", {}).values())
-            
+
             return {
                 "statistics": {
                     "node_count": node_count,
@@ -145,7 +153,7 @@ async def get_graph_statistics_endpoint():
 
         return {
             "statistics": stats,
-                "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.utcnow().isoformat(),
             "source": "mock_store",
         }
 
@@ -165,10 +173,10 @@ async def get_graph_nodes(
     """Get nodes from the knowledge graph"""
     try:
         from app.database.neo4j_client import neo4j_client
-        
+
         if not neo4j_client._driver:
             return {"nodes": [], "total": 0, "limit": limit, "skip": skip}
-        
+
         with neo4j_client.get_session() as session:
             if node_type:
                 query = f"""
@@ -192,12 +200,15 @@ async def get_graph_nodes(
             node = record["n"]
             node_data = {
                 "id": node.get("arxiv_id") or node.get("name") or str(node.id),
-                "label": node.get("title") or node.get("name") or node.get("arxiv_id") or str(node.id),
+                "label": node.get("title")
+                or node.get("name")
+                or node.get("arxiv_id")
+                or str(node.id),
                 "type": list(node.labels)[0] if node.labels else "Node",
-                "properties": dict(node)
+                "properties": dict(node),
             }
             nodes.append(node_data)
-            
+
             # Get total count
             if node_type:
                 count_query = f"MATCH (n:{node_type}) RETURN count(n) as total"
@@ -223,10 +234,10 @@ async def get_graph_edges(
     """Get edges from the knowledge graph"""
     try:
         from app.database.neo4j_client import neo4j_client
-        
+
         if not neo4j_client._driver:
             return {"edges": [], "total": 0, "limit": limit, "skip": skip}
-        
+
         with neo4j_client.get_session() as session:
             if edge_type:
                 query = f"""
@@ -259,10 +270,10 @@ async def get_graph_edges(
                 "source": record["source"],
                 "target": record["target"],
                 "type": record["type"],
-                "properties": record["properties"] or {}
+                "properties": record["properties"] or {},
             }
             edges.append(edge_data)
-            
+
             # Get total count
             if edge_type:
                 count_query = f"MATCH ()-[r:{edge_type}]->() RETURN count(r) as total"
@@ -336,7 +347,7 @@ async def get_shortest_paths(
     """Get shortest paths between nodes"""
     try:
         from app.database.neo4j_client import neo4j_client
-        
+
         if not neo4j_client._driver:
             return {
                 "source": source,
@@ -344,7 +355,7 @@ async def get_shortest_paths(
                 "paths": [],
                 "max_length": max_length,
             }
-        
+
         with neo4j_client.get_session() as session:
             query = """
             MATCH path = shortestPath((a)-[*1..$max_length]-(b))
@@ -353,34 +364,46 @@ async def get_shortest_paths(
             RETURN path
             LIMIT 10
             """
-            
-            result = session.run(query, source=source, target=target, max_length=max_length)
-            
+
+            result = session.run(
+                query, source=source, target=target, max_length=max_length
+            )
+
             paths = []
             for record in result:
                 path = record["path"]
                 path_nodes = []
                 path_edges = []
-                
+
                 for node in path.nodes:
-                    path_nodes.append({
-                        "id": node.get("arxiv_id") or node.get("name") or str(node.id),
-                        "label": node.get("title") or node.get("name") or str(node.id),
-                        "type": list(node.labels)[0] if node.labels else "Node",
-                    })
-                
+                    path_nodes.append(
+                        {
+                            "id": node.get("arxiv_id")
+                            or node.get("name")
+                            or str(node.id),
+                            "label": node.get("title")
+                            or node.get("name")
+                            or str(node.id),
+                            "type": list(node.labels)[0] if node.labels else "Node",
+                        }
+                    )
+
                 for rel in path.relationships:
-                    path_edges.append({
-                        "source": str(rel.start_node.id),
-                        "target": str(rel.end_node.id),
-                        "type": rel.type,
-                    })
-                
-                paths.append({
-                    "nodes": path_nodes,
-                    "edges": path_edges,
-                    "length": len(path_edges),
-                })
+                    path_edges.append(
+                        {
+                            "source": str(rel.start_node.id),
+                            "target": str(rel.end_node.id),
+                            "type": rel.type,
+                        }
+                    )
+
+                paths.append(
+                    {
+                        "nodes": path_nodes,
+                        "edges": path_edges,
+                        "length": len(path_edges),
+                    }
+                )
 
         return {
             "source": source,

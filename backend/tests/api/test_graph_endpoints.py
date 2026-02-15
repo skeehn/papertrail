@@ -1,8 +1,9 @@
 """Tests for graph API endpoints"""
 
+from unittest.mock import MagicMock, patch
+
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import patch, MagicMock
 
 from app.main import app
 
@@ -33,7 +34,7 @@ class TestGraphQuery:
                 }
             ],
         )
-        
+
         response = client.post(
             "/api/v1/graph/query",
             json={
@@ -41,7 +42,7 @@ class TestGraphQuery:
                 "depth": 2,
             },
         )
-        
+
         assert response.status_code == 200
         data = response.json()
         assert "nodes" in data
@@ -56,7 +57,7 @@ class TestGraphQuery:
                 "depth": 1,
             },
         )
-        
+
         assert response.status_code == 200
         data = response.json()
         assert "nodes" in data
@@ -68,7 +69,7 @@ class TestGraphQuery:
             "/api/v1/graph/query",
             json={},
         )
-        
+
         assert response.status_code == 200
         data = response.json()
         assert "nodes" in data
@@ -78,16 +79,16 @@ class TestGraphQuery:
 class TestGraphStatistics:
     """Test graph statistics endpoint"""
 
-    @patch("app.api.v1.endpoints.graph.get_graph_statistics")
+    @patch("app.database.neo4j_client.get_graph_statistics")
     def test_get_graph_statistics(self, mock_get_stats):
         """Test getting graph statistics"""
         mock_get_stats.return_value = {
             "nodes": {"Entity": 10, "Paper": 5},
             "relationships": {"MENTIONS": 20},
         }
-        
+
         response = client.get("/api/v1/graph/statistics")
-        
+
         assert response.status_code == 200
         data = response.json()
         assert "statistics" in data
@@ -100,7 +101,7 @@ class TestGraphNodes:
     def test_get_graph_nodes(self):
         """Test getting graph nodes"""
         response = client.get("/api/v1/graph/nodes")
-        
+
         assert response.status_code == 200
         data = response.json()
         assert "nodes" in data
@@ -109,7 +110,7 @@ class TestGraphNodes:
     def test_get_graph_nodes_with_filter(self):
         """Test getting graph nodes with type filter"""
         response = client.get("/api/v1/graph/nodes?node_type=Entity")
-        
+
         assert response.status_code == 200
         data = response.json()
         assert "nodes" in data
@@ -117,7 +118,7 @@ class TestGraphNodes:
     def test_get_graph_nodes_with_pagination(self):
         """Test getting graph nodes with pagination"""
         response = client.get("/api/v1/graph/nodes?skip=10&limit=5")
-        
+
         assert response.status_code == 200
         data = response.json()
         assert "skip" in data
@@ -130,7 +131,7 @@ class TestGraphEdges:
     def test_get_graph_edges(self):
         """Test getting graph edges"""
         response = client.get("/api/v1/graph/edges")
-        
+
         assert response.status_code == 200
         data = response.json()
         assert "edges" in data
@@ -139,7 +140,7 @@ class TestGraphEdges:
     def test_get_graph_edges_with_filter(self):
         """Test getting graph edges with type filter"""
         response = client.get("/api/v1/graph/edges?edge_type=MENTIONS")
-        
+
         assert response.status_code == 200
         data = response.json()
         assert "edges" in data
@@ -153,7 +154,7 @@ class TestGraphPaths:
         response = client.get(
             "/api/v1/graph/paths?source=node1&target=node2&max_length=5"
         )
-        
+
         assert response.status_code == 200
         data = response.json()
         assert "source" in data
@@ -163,5 +164,5 @@ class TestGraphPaths:
     def test_get_shortest_paths_missing_params(self):
         """Test getting paths with missing parameters"""
         response = client.get("/api/v1/graph/paths")
-        
+
         assert response.status_code == 422  # Validation error

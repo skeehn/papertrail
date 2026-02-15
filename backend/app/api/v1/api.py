@@ -35,6 +35,10 @@ api_router.include_router(
 api_router.include_router(insights.router, prefix="/insights", tags=["insights"])
 api_router.include_router(dashboard.router, prefix="/dashboard", tags=["dashboard"])
 api_router.include_router(citations.router, prefix="/citations", tags=["citations"])
-api_router.include_router(contradictions.router, prefix="/contradictions", tags=["contradictions"])
+api_router.include_router(
+    contradictions.router, prefix="/contradictions", tags=["contradictions"]
+)
 api_router.include_router(gaps.router, prefix="/gaps", tags=["gaps"])
-api_router.include_router(recommendations.router, prefix="/recommendations", tags=["recommendations"])
+api_router.include_router(
+    recommendations.router, prefix="/recommendations", tags=["recommendations"]
+)

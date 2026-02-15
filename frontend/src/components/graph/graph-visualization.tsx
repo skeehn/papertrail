@@ -113,23 +113,31 @@ type LayoutType = 'force' | 'circular' | 'hierarchical'
      const baseNodes: Node[] = activeData.nodes.map((node, index) => ({
        id: node.id,
        type: 'default',
+       position: { x: 0, y: 0 },
        data: {
          label: node.label || node.id,
          originalNode: node,
        },
      }))
 
+     // Convert GraphEdge[] to Edge[] for layout functions
+     const layoutEdges: Edge[] = activeData.edges.map((edge, index) => ({
+       id: `${edge.source}-${edge.target}-${index}`,
+       source: edge.source,
+       target: edge.target,
+     }))
+
      // Apply layout based on selected type
      let positionedNodes: Node[]
      switch (layoutType) {
        case 'force':
-         positionedNodes = forceDirectedLayout(baseNodes, activeData.edges, containerSize)
+         positionedNodes = forceDirectedLayout(baseNodes, layoutEdges, containerSize)
          break
        case 'circular':
          positionedNodes = circularLayout(baseNodes, containerSize)
          break
        case 'hierarchical':
-         positionedNodes = hierarchicalLayout(baseNodes, activeData.edges, containerSize)
+         positionedNodes = hierarchicalLayout(baseNodes, layoutEdges, containerSize)
          break
        default:
          positionedNodes = baseNodes.map((node) => ({

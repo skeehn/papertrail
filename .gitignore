@@ -95,3 +95,5 @@ backend/.env
 data/
 *.pyc
 __pycache__/
+.cursor/
+backend/uploads/

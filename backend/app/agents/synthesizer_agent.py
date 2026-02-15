@@ -248,9 +248,7 @@ Be thorough but concise, prioritizing the most significant insights."""
                 },
             ]
 
-            response = await self.call_llm(
-                messages, temperature=0.2
-            )
+            response = await self.call_llm(messages, temperature=0.2)
 
             # Use text response
             return AgentResponse(
@@ -378,9 +376,7 @@ Be thorough but concise, prioritizing the most significant insights."""
                 },
             ]
 
-            response = await self.call_llm(
-                messages, temperature=0.1
-            )
+            response = await self.call_llm(messages, temperature=0.1)
 
             return AgentResponse(
                 response=response["content"],

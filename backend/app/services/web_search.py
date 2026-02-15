@@ -10,8 +10,15 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 from urllib.parse import quote_plus, urlencode
 
-import aiohttp
-import feedparser
+try:
+    import aiohttp
+except ImportError:
+    aiohttp = None
+
+try:
+    import feedparser
+except ImportError:
+    feedparser = None
 import structlog
 
 from app.core.logging import get_logger

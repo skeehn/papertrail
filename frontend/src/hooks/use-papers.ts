@@ -55,7 +55,7 @@ export function usePapers(searchQuery?: string): UsePapersReturn {
       })) as Paper[]
     },
     staleTime: 30000, // Consider data fresh for 30 seconds
-    cacheTime: 300000, // Keep in cache for 5 minutes
+    gcTime: 300000, // Keep in cache for 5 minutes
   })
 
   const deleteMutation = useMutation({
@@ -74,7 +74,7 @@ export function usePapers(searchQuery?: string): UsePapersReturn {
   })
 
   return {
-    papers: data || [],
+    papers: data ?? [],
     isLoading,
     error: error instanceof Error ? error.message : null,
     refetch: () => queryClient.invalidateQueries({ queryKey: ['papers'] }),

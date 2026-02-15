@@ -36,7 +36,9 @@ class MockPaperStore:
                     self.entities = data.get("entities", {})
                     self.relationships = data.get("relationships", {})
                     self.memories = data.get("memories", [])
-                    logger.info(f"Loaded {len(self.memories)} memories from {self.data_file}")
+                    logger.info(
+                        f"Loaded {len(self.memories)} memories from {self.data_file}"
+                    )
         except Exception as e:
             logger.warning(f"Failed to load data: {e}")
 
@@ -70,6 +72,16 @@ class MockPaperStore:
     def get_paper(self, paper_id: str) -> Optional[Dict[str, Any]]:
         """Get paper by ID"""
         return self.papers.get(paper_id)
+
+    def delete_paper(self, paper_id: str) -> bool:
+        """Delete paper by ID"""
+        if paper_id in self.papers:
+            del self.papers[paper_id]
+            self.entities.pop(paper_id, None)
+            self.relationships.pop(paper_id, None)
+            self._save_data()
+            return True
+        return False
 
     def list_papers(
         self, skip: int = 0, limit: int = 20, search: Optional[str] = None

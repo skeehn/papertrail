@@ -322,9 +322,7 @@ Always provide specific evidence and reasoning for your critiques with confidenc
                 },
             ]
 
-            response = await self.call_llm(
-                messages, temperature=0.1
-            )
+            response = await self.call_llm(messages, temperature=0.1)
 
             return AgentResponse(
                 response=response["content"],
@@ -460,9 +458,7 @@ Always provide specific evidence and reasoning for your critiques with confidenc
                 },
             ]
 
-            response = await self.call_llm(
-                messages, temperature=0.1
-            )
+            response = await self.call_llm(messages, temperature=0.1)
 
             return AgentResponse(
                 response=response["content"],

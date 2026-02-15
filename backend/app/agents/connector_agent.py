@@ -595,9 +595,7 @@ Always provide connection strength scores and explain the basis for identified r
                 },
             ]
 
-            response = await self.call_llm(
-                messages, temperature=0.1
-            )
+            response = await self.call_llm(messages, temperature=0.1)
 
             if response["type"] == "function_call":
                 analysis_data = json.loads(response["arguments"])

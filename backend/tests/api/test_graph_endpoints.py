@@ -79,7 +79,7 @@ class TestGraphQuery:
 class TestGraphStatistics:
     """Test graph statistics endpoint"""
 
-    @patch("app.api.v1.endpoints.graph.get_graph_statistics")
+    @patch("app.database.neo4j_client.get_graph_statistics")
     def test_get_graph_statistics(self, mock_get_stats):
         """Test getting graph statistics"""
         mock_get_stats.return_value = {

@@ -65,7 +65,8 @@ class TestPaperUpload:
         )
 
         assert response.status_code == 400
-        assert "PDF" in response.json()["detail"]
+        data = response.json()
+        assert "PDF" in data.get("detail", data.get("error", ""))
 
     def test_upload_empty_file(self):
         """Test upload with empty file"""
@@ -90,18 +91,13 @@ class TestPaperUpload:
 class TestPaperList:
     """Test paper listing endpoint"""
 
-    @patch("app.api.v1.endpoints.papers.list_papers")
+    @patch("app.database.list_papers")
     def test_list_papers_success(self, mock_list):
         """Test successful paper listing"""
-        mock_list.return_value = {
-            "papers": [
-                {"id": "1", "title": "Paper 1"},
-                {"id": "2", "title": "Paper 2"},
-            ],
-            "total": 2,
-            "skip": 0,
-            "limit": 20,
-        }
+        mock_list.return_value = [
+            {"id": "1", "title": "Paper 1"},
+            {"id": "2", "title": "Paper 2"},
+        ]
 
         response = client.get("/api/v1/papers/")
         assert response.status_code == 200
@@ -123,7 +119,7 @@ class TestPaperList:
 class TestPaperGet:
     """Test get paper endpoint"""
 
-    @patch("app.api.v1.endpoints.papers.get_paper_by_id")
+    @patch("app.database.get_paper_by_id")
     def test_get_paper_success(self, mock_get):
         """Test successful paper retrieval"""
         mock_get.return_value = {
@@ -146,7 +142,7 @@ class TestPaperGet:
 class TestPaperDelete:
     """Test paper deletion endpoint"""
 
-    @patch("app.api.v1.endpoints.papers.delete_paper")
+    @patch("app.database.delete_paper")
     def test_delete_paper_success(self, mock_delete):
         """Test successful paper deletion"""
         mock_delete.return_value = True

@@ -1,6 +1,6 @@
 """Integration tests for agent workflows"""
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -52,11 +52,25 @@ class TestAgentWorkflow:
     @patch("app.api.v1.endpoints.agents.AgentOrchestrator")
     async def test_parallel_workflow(self, mock_orchestrator_class):
         """Test parallel agent workflow"""
+        from app.models.schemas import AgentResponse as AgentResponseModel
+
         mock_orchestrator = mock_orchestrator_class.return_value
         mock_orchestrator.execute_workflow = AsyncMock(
             return_value=[
-                MagicMock(response="Response 1", agent_type="synthesizer"),
-                MagicMock(response="Response 2", agent_type="critic"),
+                AgentResponseModel(
+                    response="Response 1",
+                    agent_type="synthesizer",
+                    sources=[],
+                    confidence=0.9,
+                    processing_time=1.0,
+                ),
+                AgentResponseModel(
+                    response="Response 2",
+                    agent_type="critic",
+                    sources=[],
+                    confidence=0.85,
+                    processing_time=1.0,
+                ),
             ]
         )
 

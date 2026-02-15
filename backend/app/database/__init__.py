@@ -261,19 +261,23 @@ def get_graph_statistics() -> Dict[str, Any]:
         try:
             with neo4j_client.driver.session() as session:
                 # Get node counts by type
-                node_result = session.run("""
+                node_result = session.run(
+                    """
                     MATCH (n)
                     RETURN labels(n)[0] as type, count(*) as count
-                """)
+                """
+                )
                 node_types = {}
                 for record in node_result:
                     node_types[record["type"] or "Node"] = record["count"]
 
                 # Get relationship counts by type
-                rel_result = session.run("""
+                rel_result = session.run(
+                    """
                     MATCH ()-[r]->()
                     RETURN type(r) as type, count(*) as count
-                """)
+                """
+                )
                 rel_types = {}
                 for record in rel_result:
                     rel_types[record["type"] or "RELATED"] = record["count"]

@@ -33,7 +33,7 @@ class TestPaperProcessingFlow:
     @patch("app.api.v1.endpoints.papers.PDFProcessor")
     @patch("app.api.v1.endpoints.papers.EntityExtractor")
     @patch("app.api.v1.endpoints.papers.GraphBuilder")
-    @patch("app.api.v1.endpoints.papers.add_documents_to_store")
+    @patch("app.database.faiss_store.add_documents_to_store")
     async def test_complete_paper_processing(
         self,
         mock_vector_store,
@@ -95,12 +95,13 @@ class TestPaperProcessingFlow:
         # Note: In a real integration test, we would wait for background processing
         # and verify the results in the database
 
-    @patch("app.api.v1.endpoints.papers.processing_notifier")
+    @patch("app.websocket.websocket_manager.processing_notifier")
     async def test_paper_processing_with_notifications(self, mock_notifier, sample_pdf):
         """Test paper processing with WebSocket notifications"""
         mock_notifier.start_processing = AsyncMock()
         mock_notifier.update_progress = AsyncMock()
         mock_notifier.complete_processing = AsyncMock()
+        mock_notifier.error_processing = AsyncMock()
 
         with open(sample_pdf, "rb") as f:
             response = client.post(
@@ -109,4 +110,3 @@ class TestPaperProcessingFlow:
             )
 
         assert response.status_code == 200
-        # Verify notifications were called (in real test, would check WebSocket messages)

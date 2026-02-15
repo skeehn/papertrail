@@ -13,7 +13,7 @@ client = TestClient(app)
 class TestComplexReasoning:
     """Test complex reasoning endpoint"""
 
-    @patch("app.api.v1.endpoints.insights.answer_complex_query")
+    @patch("app.agents.reasoning_agent.ReasoningAgent.answer_complex_query")
     def test_complex_reasoning_success(self, mock_answer):
         """Test successful complex reasoning query"""
         mock_answer.return_value = {

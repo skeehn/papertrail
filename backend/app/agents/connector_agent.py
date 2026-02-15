@@ -694,14 +694,16 @@ Always provide connection strength scores and explain the basis for identified r
                 for e in paper.get("entities", [])
                 if e.get("confidence", 0) > 0.6
             ]
-            formatted_parts.append(f"""
+            formatted_parts.append(
+                f"""
 Paper ID: {paper['id']}
 Title: {paper['title']}
 Authors: {', '.join(paper.get('authors', []))}
 Categories: {', '.join(paper.get('categories', []))}
 Key Concepts: {', '.join(entities[:10])}
 Citations: {len(paper.get('citations', []))} references
-""")
+"""
+            )
 
         # Format connections
         if connections:

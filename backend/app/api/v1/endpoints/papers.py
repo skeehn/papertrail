@@ -93,6 +93,8 @@ async def upload_paper(
             status=ProcessingStatus.PENDING,
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("Paper upload failed", error=str(e), filename=file.filename)
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")

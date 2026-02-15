@@ -56,7 +56,7 @@ class TestGraphBuilding:
         assert len(data["nodes"]) > 0
         assert len(data["edges"]) > 0
 
-    @patch("app.api.v1.endpoints.graph.get_graph_statistics")
+    @patch("app.database.neo4j_client.get_graph_statistics")
     def test_graph_statistics_flow(self, mock_get_stats):
         """Test getting graph statistics"""
         mock_get_stats.return_value = {

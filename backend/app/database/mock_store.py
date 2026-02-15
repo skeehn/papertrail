@@ -73,6 +73,16 @@ class MockPaperStore:
         """Get paper by ID"""
         return self.papers.get(paper_id)
 
+    def delete_paper(self, paper_id: str) -> bool:
+        """Delete paper by ID"""
+        if paper_id in self.papers:
+            del self.papers[paper_id]
+            self.entities.pop(paper_id, None)
+            self.relationships.pop(paper_id, None)
+            self._save_data()
+            return True
+        return False
+
     def list_papers(
         self, skip: int = 0, limit: int = 20, search: Optional[str] = None
     ) -> List[Dict[str, Any]]:

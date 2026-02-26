@@ -20,7 +20,7 @@ interface ClaimsListProps {
   selectedPaper: any
 }
 
-const ClaimsList = ({ papers, selectedPaper }: ClaimsListProps) => {
+const ClaimsList = ({ selectedPaper }: ClaimsListProps) => {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedConfidenceFilter, setSelectedConfidenceFilter] = useState<'all' | 'high' | 'medium' | 'low'>('all')
   const [selectedModalityFilter, setSelectedModalityFilter] = useState<'all' | 'strong' | 'weak' | 'speculative'>('all')
@@ -134,7 +134,7 @@ const ClaimsList = ({ papers, selectedPaper }: ClaimsListProps) => {
 
       {/* Claims list */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        {filteredClaims.map((claim: any, index: number) => (
+        {filteredClaims.map((claim: any) => (
           <Card key={claim.id} className="p-4 hover:shadow-md transition-shadow">
             <div className="space-y-3">
               {/* Claim header */}

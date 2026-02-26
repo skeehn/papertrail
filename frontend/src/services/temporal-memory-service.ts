@@ -1,10 +1,9 @@
 "use client"
 
-import { 
-  TemporalMemory, 
-  MemoryQuery, 
-  MemoryStatistics, 
-  MemoryConsolidation,
+import {
+  TemporalMemory,
+  MemoryQuery,
+  MemoryStatistics,
   MemoryRelationship,
   MemoryDecayConfig
 } from '@/types/temporal-memory'

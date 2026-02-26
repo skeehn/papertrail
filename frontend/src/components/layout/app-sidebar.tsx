@@ -116,7 +116,7 @@ export function AppSidebar() {
         
         // Get all conversation IDs from localStorage
         const allKeys = Object.keys(localStorage)
-        const conversationKeys = allKeys.filter(key => key.startsWith('papertrail_conversation_'))
+        allKeys.filter(key => key.startsWith('papertrail_conversation_'))
         
         const convs: Conversation[] = []
         
@@ -154,7 +154,7 @@ export function AppSidebar() {
     return () => clearInterval(interval)
   }, [loadConversation])
 
-  const handleConversationClick = (convId: string) => {
+  const handleConversationClick = (_convId: string) => {
     // Navigate to chat and load conversation
     router.push('/')
     // The chat component will load the conversation on mount

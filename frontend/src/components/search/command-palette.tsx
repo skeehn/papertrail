@@ -6,7 +6,6 @@ import {
   Search,
   FileText,
   MessageSquare,
-  Lightbulb,
   Network,
   Settings,
   Home,

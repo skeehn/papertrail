@@ -10,7 +10,6 @@ from app.main import app
 client = TestClient(app)
 
 
-@pytest.mark.asyncio
 class TestGraphBuilding:
     """Test graph construction integration"""
 

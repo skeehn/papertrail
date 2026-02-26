@@ -12,6 +12,7 @@ vi.mock('@xyflow/react', () => ({
   useNodesState: () => [[], vi.fn(), vi.fn()],
   useEdgesState: () => [[], vi.fn(), vi.fn()],
   addEdge: vi.fn(),
+  BackgroundVariant: { Dots: 'dots', Lines: 'lines', Cross: 'cross' },
 }))
 
 // Mock hooks

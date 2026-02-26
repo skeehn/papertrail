@@ -81,7 +81,7 @@ export async function POST(req: Request) {
           paper_id: z.string().optional().describe("ID of paper to query"), 
           depth: z.number().optional().default(2).describe("Depth of graph traversal"),
         }),
-        execute: async ({ entity_name, paper_id, depth }) => {
+        execute: async ({ entity_name, paper_id }) => {
           try {
             const response = await fetch(`${BACKEND_URL}/api/v1/search/`, {
               method: 'POST',

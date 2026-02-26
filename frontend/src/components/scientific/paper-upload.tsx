@@ -58,15 +58,16 @@ const PaperUpload = ({ onPaperUploaded, className }: PaperUploadProps) => {
         
         // Upload and parse paper
         await uploadAndParsePaper(formData, paperId)
-        
+
       } catch (error) {
-        setPapers(prev => prev.map(p => 
-          p.id === paperId 
+        setPapers(prev => prev.map(p =>
+          p.id === paperId
             ? { ...p, status: 'error', error: 'Upload failed: ' + String(error) }
             : p
         ))
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const uploadAndParsePaper = async (formData: FormData, paperId: string) => {

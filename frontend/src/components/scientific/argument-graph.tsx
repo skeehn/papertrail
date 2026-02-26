@@ -7,7 +7,6 @@ import {
   Edge,
   Controls,
   Background,
-  Position,
   BackgroundVariant,
   Panel
 } from '@xyflow/react'
@@ -29,7 +28,7 @@ interface ArgumentGraphProps {
   selectedPaper: any
 }
 
-const ArgumentGraph = ({ papers, selectedPaper }: ArgumentGraphProps) => {
+const ArgumentGraph = ({ selectedPaper }: ArgumentGraphProps) => {
   const [nodes, setNodes] = useState<Node[]>([])
   const [edges, setEdges] = useState<Edge[]>([])
   const [selectedNode, setSelectedNode] = useState<any>(null)

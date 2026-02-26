@@ -5,7 +5,7 @@ import { useMemories, useConversationPersistence } from '@/hooks/use-memory-pers
 
 export default function TestMemoryPage() {
   const { data: memories } = useMemories()
-  const { saveConversation, loadConversation } = useConversationPersistence()
+  const { loadConversation } = useConversationPersistence()
   const [testResults, setTestResults] = useState<string[]>([])
 
   useEffect(() => {
@@ -39,6 +39,7 @@ export default function TestMemoryPage() {
     }
     
     runTests()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [memories])
 
   return (

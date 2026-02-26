@@ -41,7 +41,7 @@ export function forceDirectedLayout(
   if (nodes.length === 0) return []
   
   // Initialize positions with random or centered layout
-  const layoutNodes: LayoutNode[] = nodes.map((node, index) => ({
+  const layoutNodes: LayoutNode[] = nodes.map((node) => ({
     ...node,
     x: opts.width / 2 + (Math.random() - 0.5) * 200,
     y: opts.height / 2 + (Math.random() - 0.5) * 200,
@@ -230,8 +230,7 @@ export function hierarchicalLayout(
   })
   
   const levelHeight = opts.height / 6
-  const centerX = opts.width / 2
-  
+
   // Group nodes by level
   const nodesByLevel = new Map<number, Node[]>()
   nodes.forEach(node => {

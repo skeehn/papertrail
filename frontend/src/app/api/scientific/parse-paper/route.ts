@@ -5,7 +5,7 @@ import path from 'path'
 const UPLOAD_DIR = path.join(process.cwd(), 'uploads', 'papers')
 
 // Mock Grobid response - in production this would call actual Grobid service
-const mockGrobidParse = async (pdfPath: string) => {
+const mockGrobidParse = async (_pdfPath: string) => {
   // Simulate processing time
   await new Promise(resolve => setTimeout(resolve, 1000))
   

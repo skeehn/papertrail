@@ -34,7 +34,7 @@ jobs:
         run: cd frontend && npx tsc --noEmit
 
       - name: Run frontend tests
-        run: echo "No tests configured yet"
+        run: cd frontend && npx vitest run
 
       - name: Build frontend
         run: npm run build:frontend

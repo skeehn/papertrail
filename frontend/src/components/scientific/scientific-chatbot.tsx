@@ -18,7 +18,7 @@ import {
 } from "@/components/prompt-kit/prompt-input"
 import { Button } from "@/components/ui/button"
 import { cn } from "../../lib/utils"
-import { useChat } from "@ai-sdk/react"
+import { useChat, UIMessage } from "@ai-sdk/react"
 import {
   AlertTriangle,
   ArrowUp,

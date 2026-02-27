@@ -18,9 +18,7 @@ import {
 } from "@/components/prompt-kit/prompt-input"
 import { Button } from "@/components/ui/button"
 import { cn } from "../../lib/utils"
-import { useChat } from "@ai-sdk/react"
-import { DefaultChatTransport } from "ai"
-import type { UIMessage } from "ai"
+import { useChat, UIMessage } from "@ai-sdk/react"
 import {
   AlertTriangle,
   ArrowUp,
@@ -152,15 +150,16 @@ function ScientificChatbot() {
     }
     // Enable persistence after initial load
     setTimeout(() => setPersistenceEnabled(true), 1000)
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Intentionally run once on mount
 
   // Save conversation when messages change
   useEffect(() => {
     if (!persistenceEnabled) return
-    
+
     if (messages.length > 0 && messages.length !== lastSavedMessageCount) {
       setLastSavedMessageCount(messages.length)
-      
+
       const timeoutId = setTimeout(async () => {
         try {
           await saveConversation(messages)
@@ -169,9 +168,10 @@ function ScientificChatbot() {
           console.error('Failed to save conversation:', error)
         }
       }, 1000)
-      
+
       return () => clearTimeout(timeoutId)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages.length, persistenceEnabled, saveConversation])
 
   const handleSubmit = () => {

@@ -24,7 +24,7 @@ class PineconeStore:
 
     def __init__(self):
         self._client: Optional[Any] = None
-        _index: Optional[Any] = None
+        self._index: Optional[Any] = None
         self._connected = False
 
     async def connect(self) -> bool:

@@ -1,16 +1,27 @@
+import os
 from typing import List, Optional
 
 try:
     from pydantic import Field
-    from pydantic_settings import BaseSettings
+    from pydantic_settings import BaseSettings, SettingsConfigDict
 except ImportError:
-    from pydantic import BaseSettings, Field
+    from pydantic import BaseSettings, Field  # type: ignore[no-redef]
 
-import os
+    SettingsConfigDict = None  # type: ignore[assignment,misc]
 
 
 class Settings(BaseSettings):
     """Application settings"""
+
+    model_config = (
+        SettingsConfigDict(
+            env_file=".env",
+            case_sensitive=True,
+            extra="ignore",
+        )
+        if SettingsConfigDict is not None
+        else None  # type: ignore[assignment]
+    )
 
     # Application
     VERSION: str = "0.1.0"
@@ -101,11 +112,6 @@ class Settings(BaseSettings):
     # Graph Configuration
     GRAPH_CACHE_TTL: int = Field(default=3600)  # 1 hour
     GRAPH_MAX_NODES: int = Field(default=10000)
-
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
-        extra = "ignore"
 
 
 # Create settings instance

@@ -43,7 +43,7 @@ export default function DebugPage() {
       
       <div className="space-y-2">
         <h2 className="text-lg font-semibold">Memories ({isLoading ? 'loading...' : memories?.length || 0})</h2>
-        {memories?.map((memory, i) => (
+        {memories?.map((memory) => (
           <div key={memory.id} className="p-2 border rounded">
             <div className="text-sm text-gray-600">{memory.metadata.type}</div>
             <div>{memory.content.slice(0, 100)}...</div>

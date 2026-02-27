@@ -7,15 +7,6 @@ import { Badge } from '@/components/ui/badge'
 import { Brain, Network, Search, Activity } from 'lucide-react'
 import { useGraphStatistics } from '@/hooks/use-graph-data'
 
-interface GraphStatistics {
-  node_count: number
-  relationship_count: number
-  node_types: Record<string, number>
-  relationship_types: Record<string, number>
-  timestamp: string
-  source?: string
-}
-
 interface MemoryPanelProps {
   className?: string
   onEntitySelect?: (entityName: string) => void

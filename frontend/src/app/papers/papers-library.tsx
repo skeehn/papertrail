@@ -281,6 +281,7 @@ const PapersLibraryContent = memo(function PapersLibraryContent() {
             <Button
               size="sm"
               variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
+              aria-label="Grid view"
               onClick={() => setViewMode('grid')}
               className="h-8 transition-all"
             >
@@ -289,6 +290,7 @@ const PapersLibraryContent = memo(function PapersLibraryContent() {
             <Button
               size="sm"
               variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+              aria-label="List view"
               onClick={() => setViewMode('list')}
               className="h-8 transition-all"
             >
@@ -392,7 +394,6 @@ const PapersLibraryContent = memo(function PapersLibraryContent() {
         )}>
           {filteredPapers.map((paper, index) =>
             viewMode === 'grid' ? (
-              // eslint-disable-next-line react/forbid-dom-props
               <div
                 key={paper.id}
                 className="animate-in fade-in slide-in-from-bottom-4"
@@ -401,7 +402,6 @@ const PapersLibraryContent = memo(function PapersLibraryContent() {
                 <PaperGridCard paper={paper} />
               </div>
             ) : (
-              // eslint-disable-next-line react/forbid-dom-props
               <div
                 key={paper.id}
                 className="animate-in fade-in slide-in-from-left-4"

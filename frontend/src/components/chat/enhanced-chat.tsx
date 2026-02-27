@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Card } from '@/components/ui/card'
-import { Brain, Upload, Send, FileText, X, Sparkles, User, Copy, Check, ThumbsUp, ThumbsDown, RefreshCw, Zap, Search, Network, Lightbulb, CheckCircle2, Loader2 } from 'lucide-react'
+import { Brain, Upload, Send, FileText, X, Sparkles, User, Copy, Check, ThumbsUp, ThumbsDown, RefreshCw, Zap, Network, Lightbulb, CheckCircle2, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -401,7 +401,6 @@ export default function EnhancedChat() {
                   message.role === 'user' ? 'justify-end' : 'justify-start',
                   'animate-in fade-in slide-in-from-bottom-4 duration-500'
                 )}
-                // eslint-disable-next-line react/forbid-dom-props
                 style={{ '--animation-delay': index * 50 } as React.CSSProperties}
               >
                 {message.role === 'assistant' && (
@@ -491,11 +490,8 @@ export default function EnhancedChat() {
               <div className="bg-muted/50 border border-border/50 rounded-lg px-4 py-3">
                 <div className="flex items-center gap-2">
                   <div className="flex gap-1">
-                    {/* eslint-disable-next-line react/forbid-dom-props */}
                     <div className="w-2 h-2 bg-muted-foreground/50 rounded-full animate-bounce" style={{ '--animation-delay': 0 } as React.CSSProperties}></div>
-                    {/* eslint-disable-next-line react/forbid-dom-props */}
                     <div className="w-2 h-2 bg-muted-foreground/50 rounded-full animate-bounce" style={{ '--animation-delay': 150 } as React.CSSProperties}></div>
-                    {/* eslint-disable-next-line react/forbid-dom-props */}
                     <div className="w-2 h-2 bg-muted-foreground/50 rounded-full animate-bounce" style={{ '--animation-delay': 300 } as React.CSSProperties}></div>
                   </div>
                   <span className="text-sm text-muted-foreground">Thinking...</span>
@@ -559,6 +555,7 @@ export default function EnhancedChat() {
               type="button"
               size="icon"
               variant="ghost"
+              aria-label="Upload file"
               onClick={() => fileInputRef.current?.click()}
               disabled={uploadStatus === 'uploading'}
             >
@@ -647,7 +644,6 @@ export default function EnhancedChat() {
               {(uploadStatus === 'uploading' || uploadProgress > 0) && (
                 <div className="mt-3 space-y-2">
                   <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
-                    {/* eslint-disable-next-line react/forbid-dom-props */}
                     <div
                       className="h-full bg-primary-500 transition-all duration-500 rounded-full"
                       style={{ width: `${Math.max(0, Math.min(100, uploadProgress))}%` } as React.CSSProperties}

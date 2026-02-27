@@ -3,7 +3,6 @@
 import React, { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Card } from '@/components/ui/card'
 import { Search, Plus, MessageSquare, Trash2, Edit2, Pin } from 'lucide-react'
 import { cn } from '@/lib/utils'
 

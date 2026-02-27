@@ -3,19 +3,15 @@
 import React, { useState, useEffect } from 'react'
 import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport } from 'ai'
-import type { UIMessage } from 'ai'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { useConversationPersistence } from '@/hooks/use-memory-persistence'
-import { 
-  Send, 
+import {
+  Send,
   Brain,
   FileText,
-  Search,
-  Lightbulb,
-  Network,
   MessageSquare,
   Upload
 } from 'lucide-react'
@@ -46,15 +42,16 @@ const IntelligentChat = ({ papers, className }: IntelligentChatProps) => {
     }
     // Enable persistence after initial load
     setTimeout(() => setPersistenceEnabled(true), 1000)
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Intentionally run once on mount
 
   // Save conversation when messages change
   useEffect(() => {
     if (!persistenceEnabled) return
-    
+
     if (messages.length > 0 && messages.length !== lastSavedMessageCount) {
       setLastSavedMessageCount(messages.length)
-      
+
       const timeoutId = setTimeout(async () => {
         try {
           await saveConversation(messages)
@@ -63,9 +60,10 @@ const IntelligentChat = ({ papers, className }: IntelligentChatProps) => {
           console.error('Failed to save conversation:', error)
         }
       }, 1000)
-      
+
       return () => clearTimeout(timeoutId)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages.length, persistenceEnabled, saveConversation])
 
   const handleSubmit = () => {

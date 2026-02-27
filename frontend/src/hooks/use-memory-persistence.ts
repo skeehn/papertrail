@@ -6,7 +6,6 @@ import { UIMessage } from 'ai'
 // Temporarily disable memory services to fix basic functionality
 // import { temporalMemoryService } from '@/services/temporal-memory-service'
 // import { hierarchicalMemoryService } from '@/services/hierarchical-memory-service'
-import { TemporalMemory } from '@/types/temporal-memory'
 
 interface Memory {
   id: string
@@ -176,8 +175,6 @@ export const useCreateMemory = () => {
 
 // Conversation persistence using localStorage + backend sync
 export const useConversationPersistence = () => {
-  const createMemory = useCreateMemory()
-  const queryClient = useQueryClient()
 
   const saveConversation = useCallback(async (messages: UIMessage[]) => {
     // Check if we're in a browser environment
@@ -271,7 +268,7 @@ export const useConversationPersistence = () => {
     } else {
       console.log('❌ No latest message found in messages array:', messages.length)
     }
-  }, [createMemory, queryClient])
+  }, [])
 
   const loadConversation = (): UIMessage[] => {
     try {

@@ -20,3 +20,14 @@ global.WebSocket = class WebSocket {
   send() {}
   close() {}
 } as any
+
+// Mock ResizeObserver (not available in jsdom)
+global.ResizeObserver = class ResizeObserver {
+  constructor(_callback: ResizeObserverCallback) {}
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+
+// Mock scrollIntoView (not implemented in jsdom)
+Element.prototype.scrollIntoView = vi.fn()

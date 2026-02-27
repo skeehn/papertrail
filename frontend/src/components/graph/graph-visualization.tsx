@@ -19,9 +19,8 @@ import '@xyflow/react/dist/style.css'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { useGraphQuery, useGraphStatistics } from '@/hooks/use-graph-data'
-import { useMemories } from '@/hooks/use-memory-persistence'
-import { Expand, Eye, Search, Network } from 'lucide-react'
+import { useGraphQuery } from '@/hooks/use-graph-data'
+import { Expand, Search, Network } from 'lucide-react'
 import { forceDirectedLayout, circularLayout, hierarchicalLayout } from '@/utils/graph-layout'
 import { Download } from 'lucide-react'
 
@@ -81,12 +80,7 @@ type LayoutType = 'force' | 'circular' | 'hierarchical'
      depth: 2,
    })
 
-  // Graph data loaded (debug logging removed)
-
-   // Get memories for showing all data when no specific search
-   const { data: memories } = useMemories()
-
-   // Use queried data or provided data
+  // Use queried data or provided data
    const activeData = queryData && queryData.nodes && queryData.edges &&
      (queryData.nodes.length > 0 || queryData.edges.length > 0) ? queryData : data
 
@@ -110,7 +104,7 @@ type LayoutType = 'force' | 'circular' | 'hierarchical'
    useEffect(() => {
      if (!activeData || !activeData.nodes || !activeData.edges) return
 
-     const baseNodes: Node[] = activeData.nodes.map((node, index) => ({
+     const baseNodes: Node[] = activeData.nodes.map((node) => ({
        id: node.id,
        type: 'default',
        position: { x: 0, y: 0 },
@@ -264,26 +258,13 @@ type LayoutType = 'force' | 'circular' | 'hierarchical'
       })
       
       if (response.ok) {
-        const data = await response.json()
+        await response.json()
         // The graph will automatically update via the query hook
       }
     } catch (err) {
       console.error('Failed to expand node:', err)
     }
   }, [expandedNodes])
-
-  const handleFindPath = useCallback(async (sourceId: string, targetId: string) => {
-    try {
-      const response = await fetch(`/api/graph/paths?source=${sourceId}&target=${targetId}&max_length=5`)
-      if (response.ok) {
-        const data = await response.json()
-        // Highlight path in graph
-        // Path found (debug logging removed)
-      }
-    } catch (err) {
-      console.error('Failed to find path:', err)
-    }
-  }, [])
 
   // Get unique node and edge types for filters
   const availableNodeTypes = useMemo(() => {
@@ -311,10 +292,6 @@ type LayoutType = 'force' | 'circular' | 'hierarchical'
       onNodeClick(originalNode)
     }
   }, [onNodeClick])
-
-  const expandNode = useCallback((nodeName: string) => {
-    setSearchQuery(nodeName)
-  }, [])
 
   // Show empty state message when no data
   if (!activeData || !activeData.nodes || !activeData.edges || 

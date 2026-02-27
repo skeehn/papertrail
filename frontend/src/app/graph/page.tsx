@@ -3,7 +3,7 @@
 import React, { useState } from 'react'
 import { AppLayout, PageHeader, PageContent } from '@/components/layout/app-layout'
 import { Button } from '@/components/ui/button'
-import { Network, Maximize, Download } from 'lucide-react'
+import { Maximize, Download } from 'lucide-react'
 import GraphVisualization from '@/components/graph/graph-visualization'
 
 export default function GraphPage() {

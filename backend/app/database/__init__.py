@@ -31,7 +31,7 @@ def get_paper_by_id(paper_id: str) -> Optional[Dict[str, Any]]:
     """Get paper by ID from Neo4j or mock store"""
     if NEO4J_CONNECTED:
         try:
-            with neo4j_client.driver.session() as session:
+            with neo4j_client.get_session() as session:
                 result = session.run(
                     "MATCH (p:Paper {arxiv_id: $id}) RETURN p LIMIT 1", id=paper_id
                 )
@@ -52,7 +52,7 @@ def list_papers(
     """List papers from Neo4j or mock store"""
     if NEO4J_CONNECTED and search:
         try:
-            with neo4j_client.driver.session() as session:
+            with neo4j_client.get_session() as session:
                 # Search with Neo4j
                 result = session.run(
                     """
@@ -78,7 +78,7 @@ def list_papers(
     # Fall back to mock or Neo4j without search
     if NEO4J_CONNECTED:
         try:
-            with neo4j_client.driver.session() as session:
+            with neo4j_client.get_session() as session:
                 result = session.run(
                     """
                     MATCH (p:Paper)
@@ -105,7 +105,7 @@ def delete_paper(paper_id: str) -> bool:
     """Delete a paper from Neo4j or mock store"""
     if NEO4J_CONNECTED:
         try:
-            with neo4j_client.driver.session() as session:
+            with neo4j_client.get_session() as session:
                 result = session.run(
                     "MATCH (p:Paper {arxiv_id: $id}) DETACH DELETE p", id=paper_id
                 )
@@ -120,7 +120,7 @@ def get_paper_entities(paper_id: str) -> List[Dict[str, Any]]:
     """Get entities for a paper from Neo4j or mock store"""
     if NEO4J_CONNECTED:
         try:
-            with neo4j_client.driver.session() as session:
+            with neo4j_client.get_session() as session:
                 result = session.run(
                     """
                     MATCH (p:Paper {arxiv_id: $id})-[:MENTIONS]->(e:Entity)
@@ -143,7 +143,7 @@ def get_related_papers(paper_id: str, limit: int = 10) -> List[Dict[str, Any]]:
     """Get related papers from Neo4j or mock store"""
     if NEO4J_CONNECTED:
         try:
-            with neo4j_client.driver.session() as session:
+            with neo4j_client.get_session() as session:
                 result = session.run(
                     """
                     MATCH (p1:Paper {arxiv_id: $id})-[:CITES|RELATED_TO]-(p2:Paper)
@@ -173,7 +173,7 @@ def store_paper(paper_data: dict) -> str:
 
     if NEO4J_CONNECTED and paper_id:
         try:
-            with neo4j_client.driver.session() as session:
+            with neo4j_client.get_session() as session:
                 session.run(
                     """
                     MERGE (p:Paper {arxiv_id: $arxiv_id})
@@ -205,7 +205,7 @@ def store_entities(paper_id: str, entities: list):
     """Store entities to Neo4j or mock store"""
     if NEO4J_CONNECTED:
         try:
-            with neo4j_client.driver.session() as session:
+            with neo4j_client.get_session() as session:
                 for entity in entities:
                     session.run(
                         """
@@ -232,7 +232,7 @@ def store_relationships(paper_id: str, relationships: list):
     """Store relationships to Neo4j or mock store"""
     if NEO4J_CONNECTED:
         try:
-            with neo4j_client.driver.session() as session:
+            with neo4j_client.get_session() as session:
                 for rel in relationships:
                     session.run(
                         """
@@ -259,7 +259,7 @@ def get_graph_statistics() -> Dict[str, Any]:
     """Get graph statistics from Neo4j or mock store"""
     if NEO4J_CONNECTED:
         try:
-            with neo4j_client.driver.session() as session:
+            with neo4j_client.get_session() as session:
                 # Get node counts by type
                 node_result = session.run(
                     """

@@ -5,16 +5,12 @@ import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/componen
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { 
-  FileText, 
-  Network, 
-  MessageSquare, 
+import {
+  Network,
   MessageCircle,
   Brain,
   Upload,
-  Search,
   Lightbulb,
-  AlertTriangle
 } from 'lucide-react'
 
 import PaperUpload from './paper-upload'

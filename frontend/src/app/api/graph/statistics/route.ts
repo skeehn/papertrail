@@ -2,24 +2,6 @@ import { NextResponse } from 'next/server'
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000'
 
-// Import temporal memory service for enhanced statistics
-const getTemporalStats = async () => {
-  try {
-    // This is a server-side function, so we can't access localStorage directly
-    // We'll need to enhance this when we have server-side temporal memory storage
-    return {
-      temporal_memories: 0,
-      memory_layers: { hot: 0, warm: 0, cold: 0 },
-      memory_types: { episodic: 0, semantic: 0, procedural: 0, working: 0 }
-    }
-  } catch (error) {
-    return {
-      temporal_memories: 0,
-      memory_layers: { hot: 0, warm: 0, cold: 0 },
-      memory_types: { episodic: 0, semantic: 0, procedural: 0, working: 0 }
-    }
-  }
-}
 
 export async function GET() {
   try {

@@ -25,7 +25,7 @@ interface UsePapersReturn {
 export function usePapers(searchQuery?: string): UsePapersReturn {
   const queryClient = useQueryClient()
 
-  const { data, isLoading, error, refetch } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ['papers', searchQuery],
     queryFn: async () => {
       const url = new URL('/api/papers/list', window.location.origin)

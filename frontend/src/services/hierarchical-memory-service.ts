@@ -1,6 +1,6 @@
 "use client"
 
-import { TemporalMemory, MemoryQuery, MemoryStatistics } from '@/types/temporal-memory'
+import { TemporalMemory, MemoryQuery } from '@/types/temporal-memory'
 
 /**
  * Hierarchical Memory Service - Implements SuperMemory/GraphRAG patterns
@@ -53,19 +53,15 @@ const DEFAULT_CONFIG: HierarchicalMemoryConfig = {
   max_warm_memories: 1000
 }
 
-// Global flags to prevent multiple background optimizations
-let globalOptimizationStarted = false
-let optimizationInProgress = false
+// Global timer to prevent multiple background optimizations
 let optimizationTimer: NodeJS.Timeout | null = null
 
-class HierarchicalMemoryService {
+export class HierarchicalMemoryService {
   private config: HierarchicalMemoryConfig = DEFAULT_CONFIG
   private accessCache: Map<string, number> = new Map() // Memory ID -> last access time
   
   constructor() {
     // COMPLETELY DISABLE background optimization to prevent issues
-    globalOptimizationStarted = false
-    optimizationInProgress = false
     if (optimizationTimer) {
       clearInterval(optimizationTimer)
       optimizationTimer = null
@@ -320,11 +316,9 @@ class HierarchicalMemoryService {
       console.log(`✅ Optimization complete: ${moved} memories moved`)
     } catch (error) {
       console.error('Memory optimization failed:', error)
-    } finally {
-      optimizationInProgress = false
     }
   }
-  
+
   private async enforceLayerLimits(memories: TemporalMemory[]): Promise<void> {
     // Hot layer limit
     const hotMemories = memories.filter(m => m.memory_layer === 'hot')
@@ -458,7 +452,7 @@ class HierarchicalMemoryService {
     await new Promise(resolve => setTimeout(resolve, delay))
   }
   
-  private getRecentAccesses(layer: string): number {
+  private getRecentAccesses(_layer: string): number {
     // Count recent accesses in the last hour
     const hourAgo = Date.now() - (60 * 60 * 1000)
     return Array.from(this.accessCache.values())

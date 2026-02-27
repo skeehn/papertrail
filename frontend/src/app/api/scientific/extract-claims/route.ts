@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 // Mock claim extraction - in production would use fine-tuned NLP models
-const mockClaimExtraction = async (paperContent: any) => {
+const mockClaimExtraction = async (_paperContent: any) => {
   // Simulate NLP processing time
   await new Promise(resolve => setTimeout(resolve, 1500))
   

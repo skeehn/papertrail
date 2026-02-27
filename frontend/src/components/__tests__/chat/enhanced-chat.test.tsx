@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { render, screen } from '@testing-library/react'
 import EnhancedChat from '@/components/chat/enhanced-chat'
 
 // Mock the useAgentChat hook
@@ -49,8 +48,11 @@ describe('EnhancedChat', () => {
 
   it('renders agent selector', () => {
     render(<EnhancedChat />)
-    const agentSelect = screen.getByRole('combobox', { name: /agent/i })
-    expect(agentSelect).toBeInTheDocument()
+    // Agent selector uses buttons for each agent type
+    expect(screen.getByRole('button', { name: /synthesizer/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /critic/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /connector/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /reasoning/i })).toBeInTheDocument()
   })
 
   it('renders input textarea', () => {

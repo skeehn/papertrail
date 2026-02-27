@@ -146,15 +146,16 @@ function ConversationPromptInput() {
     }
     // Enable persistence after initial load
     setTimeout(() => setPersistenceEnabled(true), 1000)
-  }, []) // Empty dependency array to run once
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Intentionally run once on mount
 
   // Save conversation when messages change, but only for new messages
   useEffect(() => {
     if (!persistenceEnabled) return // Skip until persistence is enabled
-    
+
     if (messages.length > 0 && messages.length !== lastSavedMessageCount) {
       setLastSavedMessageCount(messages.length)
-      
+
       // Debounced save with error handling
       const timeoutId = setTimeout(async () => {
         try {
@@ -164,9 +165,10 @@ function ConversationPromptInput() {
           console.error('Failed to save conversation:', error)
         }
       }, 1000) // 1 second debounce
-      
+
       return () => clearTimeout(timeoutId)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages.length, persistenceEnabled]) // Only depend on message count, not content
 
   const handleSubmit = () => {

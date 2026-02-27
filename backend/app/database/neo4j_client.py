@@ -46,7 +46,7 @@ class Neo4jClient:
     async def _test_connection(self) -> None:
         """Test Neo4j connection"""
         try:
-            with self._driver.session() as session:
+            with self._driver.session(database=settings.NEO4J_DATABASE) as session:
                 result = session.run("RETURN 1 as test")
                 result.single()
         except Exception as e:
@@ -68,7 +68,7 @@ class Neo4jClient:
 
     def get_session(self) -> Session:
         """Get Neo4j session"""
-        return self.driver.session()
+        return self.driver.session(database=settings.NEO4J_DATABASE)
 
 
 # Global Neo4j client instance

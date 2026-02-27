@@ -5,8 +5,6 @@ import { GripVertical } from "lucide-react"
 
 import { cn } from "../../lib/utils"
 
-const RESIZE_HANDLE_SIZE = 4
-
 interface ResizablePanelGroupProps extends React.HTMLAttributes<HTMLDivElement> {
   direction?: "horizontal" | "vertical"
 }

@@ -17,9 +17,6 @@ from app.services.trend_analyzer import (
 router = APIRouter()
 logger = get_logger("insights_api")
 
-# Import reasoning agent but don't instantiate at module level
-# reasoning_agent = ReasoningAgent()  # Disabled until properly configured
-
 
 # Request/Response Models
 class ComplexQueryRequest(BaseModel):
@@ -50,37 +47,6 @@ class CompareTrendsRequest(BaseModel):
 
 
 # Endpoints
-
-
-@router.post("/reasoning", response_model=Dict[str, Any])
-async def complex_reasoning(request: ComplexQueryRequest) -> Dict[str, Any]:
-    """
-    Answer a complex research question using multi-hop reasoning
-
-    This endpoint decomposes complex questions into simpler sub-questions,
-    answers each step using graph traversal and vector search, then synthesizes
-    a final answer.
-
-    Example queries:
-    - "What methods used in sentiment analysis papers also appear in summarization research?"
-    - "How have transformer architectures evolved from 2017 to 2023?"
-    - "What datasets are commonly used for few-shot learning, and which methods work best on them?"
-
-    - **query**: Complex research question
-    - **context**: Optional context from previous queries
-
-    Returns answer with reasoning steps and sources.
-    """
-    try:
-        from app.agents.reasoning_agent import ReasoningAgent
-
-        agent = ReasoningAgent()
-        result = await agent.answer_complex_query(request.query, request.context)
-        return result
-
-    except Exception as e:
-        logger.error("Complex reasoning failed", error=str(e))
-        raise HTTPException(status_code=500, detail=f"Reasoning failed: {str(e)}")
 
 
 @router.post("/trends/analyze", response_model=Dict[str, Any])

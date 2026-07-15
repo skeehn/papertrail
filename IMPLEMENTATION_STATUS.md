@@ -107,8 +107,8 @@ BACKEND_URL=http://localhost:8000
 ```bash
 cd backend
 # .env already created with:
-# - OpenRouter API Key: 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
-# - Neo4j URI: neo4j+s://85da7327.databases.neo4j.io
+# - OpenRouter API Key: sk-or-v1-YOUR_OPENROUTER_KEY
+# - Neo4j URI: neo4j+s://YOUR_INSTANCE.databases.neo4j.io
 # - Neo4j User: neo4j
 # - Neo4j Password: papertrail123
 ```

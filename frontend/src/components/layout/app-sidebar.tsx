@@ -142,7 +142,12 @@ export function AppSidebar() {
         
         // Sort by timestamp (newest first) and limit to 15
         convs.sort((a, b) => b.timestamp - a.timestamp)
-        setConversations(convs.slice(0, 15))
+        const next = convs.slice(0, 15)
+        // Only update state when the data actually changed, so the 5s
+        // polling interval doesn't re-render the global sidebar every tick.
+        setConversations((prev) =>
+          JSON.stringify(prev) === JSON.stringify(next) ? prev : next
+        )
       } catch (error) {
         console.error('Error loading conversation history:', error)
       }
@@ -176,7 +181,7 @@ export function AppSidebar() {
         )}>
           {!isCollapsed && (
             <div className="flex items-center gap-3 flex-1">
-              <div className="w-8 h-8 bg-foreground text-background rounded flex items-center justify-center font-bold text-sm">
+              <div className="w-8 h-8 bg-primary text-primary-foreground rounded-lg flex items-center justify-center font-bold text-sm shadow-sm shadow-primary/30">
                 PT
               </div>
               <div className="flex-1 min-w-0">
@@ -186,7 +191,7 @@ export function AppSidebar() {
             </div>
           )}
           {isCollapsed && (
-            <div className="w-8 h-8 bg-foreground text-background rounded flex items-center justify-center font-bold text-sm">
+            <div className="w-8 h-8 bg-primary text-primary-foreground rounded-lg flex items-center justify-center font-bold text-sm shadow-sm shadow-primary/30">
               PT
             </div>
           )}
@@ -217,9 +222,9 @@ export function AppSidebar() {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  'flex items-center gap-3 px-3 py-2 rounded text-sm transition-colors',
+                  'flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors',
                   'hover:bg-muted/50',
-                  isActive && 'bg-muted text-foreground',
+                  isActive && 'bg-primary/12 text-primary font-medium',
                   !isActive && 'text-muted-foreground',
                   isCollapsed && 'justify-center px-2'
                 )}

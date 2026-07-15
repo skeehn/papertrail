@@ -1,0 +1,17 @@
+# Optional extras — NOT needed for normal use.
+#
+# Semantic search is served by Pinecone's integrated embedding model, so none of
+# this is required. Install only if you specifically want a local FAISS index or
+# OCR for scanned PDFs:
+#
+#     pip install -r requirements-optional.txt
+#
+# Heads up: sentence-transformers pulls in torch (~2GB).
+
+# Local FAISS vector index (app/database/faiss_store.py no-ops without these)
+faiss-cpu>=1.7.0
+sentence-transformers>=2.2.0
+
+# OCR for scanned PDFs
+pytesseract>=0.3.8
+Pillow>=9.0.0

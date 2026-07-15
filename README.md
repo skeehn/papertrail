@@ -25,11 +25,11 @@ Papertrail is an AI-powered research assistant that helps you discover insights 
 - **Emerging Topics**: Discover fast-growing research areas
 - **Citation Analysis**: Build and explore citation networks
 
-### 🤖 Multi-Agent AI System
-- **Synthesizer Agent**: Summarize papers and extract key findings
-- **Critic Agent**: Identify assumptions and contradictions
-- **Connector Agent**: Find relationships across papers
-- **Reasoning Agent**: Multi-step question answering
+### 🤖 Chat
+- **One assistant, any model**: pick a model from the composer; the system prompt is shared
+- **Drives its own tools**: searches your indexed papers before answering, and cites them
+- **Index from chat**: paste an arXiv link and it indexes the paper for you
+- **Streaming**: tokens arrive as they generate
 
 ### 📈 Knowledge Graph
 - **Neo4j Graph Database**: Rich entity-relationship modeling
@@ -100,67 +100,38 @@ Papertrail is an AI-powered research assistant that helps you discover insights 
 
 - Python 3.11+
 - Node.js 18+
-- Neo4j Aura account (free tier)
-- Pinecone account (free tier)
-- OpenRouter API key
+
+That's it. **No cloud accounts are required to run PaperTrail.**
 
 ### Installation
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/skeehn/papertrail.git
-   cd papertrail
-   ```
+```bash
+git clone https://github.com/skeehn/papertrail.git
+cd papertrail
+./setup.sh          # creates backend/.venv, installs everything
+npm run dev         # backend :8000 + frontend :3000
+```
 
-2. **Install dependencies**
-   ```bash
-   # Backend
-   cd backend
-   pip install -r requirements.txt
+Then open **http://localhost:3000/settings**, paste a chat model API key, and hit
+Save. The chat works immediately — keys are stored on your machine in
+`~/.papertrail/config.json` (permissions `600`, never committed).
 
-   # Frontend
-   cd ../frontend
-   npm install
-   ```
+Get a free key at [openrouter.ai/keys](https://openrouter.ai/keys).
 
-3. **Configure environment**
-   ```bash
-   # Frontend
-   cp frontend/.env.local.example frontend/.env.local
-   # Edit frontend/.env.local with your backend URL (default: http://localhost:8000)
+### Optional services
 
-   # Backend (optional)
-   cp backend/.env.example backend/.env
-   # Edit backend/.env with your API keys (OpenRouter, Neo4j, Pinecone)
-   ```
+Everything below is optional. The app boots and chats without any of it; Settings
+shows you what each one unlocks.
 
-4. **Test connections** (optional - requires configured backend)
-   ```bash
-   cd backend
-   python scripts/test_connections.py
-   ```
+| Service | Without it | With it |
+|---------|-----------|---------|
+| **Chat model** (required) | Chat can't answer | Chat works |
+| **Pinecone** | Paper search falls back to keyword matching | Semantic search over your papers |
+| **Neo4j** | Graph is empty | Paper library + knowledge graph |
 
-5. **Start the application**
+Add any of them in Settings at any time — no restart needed.
 
-   Option A: Start Frontend Only (uses mock backend data)
-   ```bash
-   cd frontend
-   npm run dev
-   # Frontend will start at: http://localhost:3000
-   ```
-
-   Option B: Start Backend (requires Neo4j and API keys)
-   ```bash
-   # Backend (terminal 1)
-   cd backend
-   uvicorn app.main:app --reload --port 8000
-
-   # Frontend (in a separate terminal)
-   cd frontend
-   npm run dev
-   # Frontend will start at: http://localhost:3000
-   # API docs at: http://localhost:8000/docs
-   ```
+---
 
 ### ✅ Recently Completed (This Integration Plan)
 

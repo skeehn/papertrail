@@ -97,3 +97,8 @@ data/
 __pycache__/
 .cursor/
 backend/uploads/
+.gstack/
+
+# Local API keys written by the Settings page
+.papertrail/
+backend/.venv/

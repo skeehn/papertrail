@@ -9,6 +9,7 @@ import openai
 import structlog
 from tenacity import retry, stop_after_attempt, wait_exponential
 
+from app.core import user_config
 from app.core.config import settings
 from app.core.logging import get_logger
 
@@ -74,10 +75,12 @@ class EntityExtractor:
     def __init__(self):
         self.logger = get_logger("entity_extractor")
         # Initialize OpenAI client with optional base_url for OpenRouter support
-        client_kwargs = {"api_key": settings.OPENAI_API_KEY}
-        if settings.OPENAI_BASE_URL:
-            client_kwargs["base_url"] = settings.OPENAI_BASE_URL
+        client_kwargs = {"api_key": user_config.get_key("OPENAI_API_KEY") or "unset"}
+        base_url = user_config.get_key("OPENAI_BASE_URL")
+        if base_url:
+            client_kwargs["base_url"] = base_url
         self.client = openai.AsyncOpenAI(**client_kwargs)
+        self.model = user_config.get_key("OPENAI_MODEL")
 
         # Entity extraction function schema
         self.entity_extraction_function = {
@@ -308,7 +311,7 @@ class EntityExtractor:
         """Extract entities from a single text chunk"""
         try:
             response = await self.client.chat.completions.create(
-                model=settings.OPENAI_MODEL,
+                model=self.model,
                 messages=[
                     {
                         "role": "system",
@@ -415,7 +418,7 @@ class EntityExtractor:
         """Extract relationships from a single text chunk"""
         try:
             response = await self.client.chat.completions.create(
-                model=settings.OPENAI_MODEL,
+                model=self.model,
                 messages=[
                     {
                         "role": "system",

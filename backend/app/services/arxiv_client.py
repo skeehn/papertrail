@@ -29,6 +29,9 @@ class ArXivClient:
         self.max_results = settings.ARXIV_MAX_RESULTS
         self.last_request_time = 0
 
+        # arxiv >= 2.0 fetches results via a Client, not Search.results()
+        self._client = arxiv.Client() if ARXIV_AVAILABLE else None
+
         # Ensure download directory exists
         os.makedirs(self.download_dir, exist_ok=True)
 
@@ -101,7 +104,7 @@ class ArXivClient:
 
             # Execute search and collect results
             papers = []
-            for result in search.results():
+            for result in self._client.results(search):
                 paper = self._parse_paper_result(result)
                 papers.append(paper)
 
@@ -130,7 +133,7 @@ class ArXivClient:
 
             # Search by ID
             search = arxiv.Search(id_list=[clean_id])
-            result = next(search.results(), None)
+            result = next(self._client.results(search), None)
 
             if result:
                 paper = self._parse_paper_result(result)
@@ -164,7 +167,7 @@ class ArXivClient:
             search = arxiv.Search(id_list=clean_ids)
 
             papers = []
-            for result in search.results():
+            for result in self._client.results(search):
                 paper = self._parse_paper_result(result)
                 papers.append(paper)
 
@@ -196,7 +199,7 @@ class ArXivClient:
 
             # Get paper metadata
             search = arxiv.Search(id_list=[clean_id])
-            paper = next(search.results(), None)
+            paper = next(self._client.results(search), None)
 
             if not paper:
                 self.logger.error("Paper not found for download", arxiv_id=clean_id)

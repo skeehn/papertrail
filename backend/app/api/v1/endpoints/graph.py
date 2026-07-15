@@ -87,8 +87,55 @@ async def query_graph(request: GraphQueryRequest):
                 return GraphResponse(nodes=[], edges=[])
 
         else:
-            # Return empty graph if no specific query
-            return GraphResponse(nodes=[], edges=[])
+            # No specific entity/paper: return an overview of the graph
+            # (papers + the entities they mention) so the page has content.
+            try:
+                from app.database import NEO4J_CONNECTED, neo4j_client
+
+                if not NEO4J_CONNECTED:
+                    return GraphResponse(nodes=[], edges=[])
+
+                nodes_by_id: dict = {}
+                edges = []
+                with neo4j_client.get_session() as session:
+                    result = session.run(
+                        """
+                        MATCH (p:Paper)-[:MENTIONS]->(e:Entity)
+                        RETURN p.arxiv_id AS pid, p.title AS ptitle,
+                               e.name AS ename, e.type AS etype
+                        LIMIT 200
+                        """
+                    )
+                    for r in result:
+                        pid = r["pid"] or r["ptitle"]
+                        if pid and pid not in nodes_by_id:
+                            nodes_by_id[pid] = {
+                                "id": pid,
+                                "label": (r["ptitle"] or pid)[:60],
+                                "type": "Paper",
+                                "properties": {"title": r["ptitle"]},
+                            }
+                        ename = r["ename"]
+                        if ename and ename not in nodes_by_id:
+                            nodes_by_id[ename] = {
+                                "id": ename,
+                                "label": ename,
+                                "type": r["etype"] or "Entity",
+                                "properties": {},
+                            }
+                        if pid and ename:
+                            edges.append(
+                                {
+                                    "source": pid,
+                                    "target": ename,
+                                    "type": "MENTIONS",
+                                    "properties": {},
+                                }
+                            )
+                return GraphResponse(nodes=list(nodes_by_id.values()), edges=edges)
+            except Exception as e:
+                logger.warning(f"Overview graph query failed: {e}")
+                return GraphResponse(nodes=[], edges=[])
 
     except Exception as e:
         logger.error("Graph query failed", error=str(e))

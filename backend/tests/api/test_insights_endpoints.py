@@ -10,32 +10,6 @@ from app.main import app
 client = TestClient(app)
 
 
-class TestComplexReasoning:
-    """Test complex reasoning endpoint"""
-
-    @patch("app.agents.reasoning_agent.ReasoningAgent.answer_complex_query")
-    def test_complex_reasoning_success(self, mock_answer):
-        """Test successful complex reasoning query"""
-        mock_answer.return_value = {
-            "answer": "Test answer",
-            "reasoning_steps": [],
-            "sources": [],
-            "confidence": 0.9,
-        }
-
-        response = client.post(
-            "/api/v1/insights/reasoning",
-            json={
-                "query": "What methods from NLP are used in computer vision?",
-                "context": None,
-            },
-        )
-
-        assert response.status_code == 200
-        data = response.json()
-        assert "answer" in data or "response" in data
-
-
 class TestTrendAnalysis:
     """Test trend analysis endpoints"""
 

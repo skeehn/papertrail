@@ -13,6 +13,7 @@ from functools import wraps
 
 import structlog
 
+from app.core import user_config
 from app.core.config import settings
 from app.core.logging import get_logger
 from app.database.mock_store import mock_store
@@ -29,8 +30,11 @@ class Neo4jClient:
         """Initialize Neo4j connection"""
         try:
             self._driver = GraphDatabase.driver(
-                settings.NEO4J_URI,
-                auth=(settings.NEO4J_USERNAME, settings.NEO4J_PASSWORD),
+                user_config.get_key("NEO4J_URI"),
+                auth=(
+                    user_config.get_key("NEO4J_USERNAME"),
+                    user_config.get_key("NEO4J_PASSWORD"),
+                ),
                 max_connection_lifetime=3600,
                 max_connection_pool_size=50,
             )
@@ -41,6 +45,15 @@ class Neo4jClient:
 
         except Exception as e:
             self.logger.error("Failed to connect to Neo4j", error=str(e))
+            # Drop the half-initialized driver so callers (and execute_query's
+            # fallback) treat this client as disconnected and degrade to the
+            # mock store instead of retrying a dead socket on every query.
+            if self._driver is not None:
+                try:
+                    self._driver.close()
+                except Exception:
+                    pass
+                self._driver = None
             raise
 
     async def _test_connection(self) -> None:
@@ -69,6 +82,32 @@ class Neo4jClient:
     def get_session(self) -> Session:
         """Get Neo4j session"""
         return self.driver.session(database=settings.NEO4J_DATABASE)
+
+    def execute_query(
+        self, query: str, parameters: Optional[Dict[str, Any]] = None
+    ) -> List[Dict[str, Any]]:
+        """Run a Cypher query and return records as a list of dicts.
+
+        Degrades gracefully: when no Neo4j connection is available (e.g. the
+        app is running against the in-memory mock store), this returns an
+        empty list instead of raising, so callers fall through to their
+        "no data" branches rather than surfacing a 500.
+
+        Service classes construct their own ``Neo4jClient()`` instances that
+        are never connected directly, so we fall back to the shared global
+        connection established at startup when this instance has no driver.
+        """
+        driver = self._driver
+        if driver is None:
+            global_client = globals().get("neo4j_client")
+            if global_client is not None and global_client is not self:
+                driver = global_client._driver
+        if driver is None:
+            return []
+
+        with driver.session(database=settings.NEO4J_DATABASE) as session:
+            result = session.run(query, parameters or {})
+            return [record.data() for record in result]
 
 
 # Global Neo4j client instance

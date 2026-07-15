@@ -33,18 +33,18 @@ The `.env` file in the `backend/` directory contains all configuration:
 
 ```bash
 # Neo4j Database (Cloud)
-NEO4J_URI=neo4j+s://85da7327.databases.neo4j.io
+NEO4J_URI=neo4j+s://YOUR_INSTANCE.databases.neo4j.io
 NEO4J_USER=neo4j
-NEO4J_PASSWORD=pcJR-Ag3HCFkHLCY2-_YdbvePns7w1ThoB34aozaGsw
+NEO4J_PASSWORD=YOUR_NEO4J_PASSWORD
 NEO4J_DATABASE=neo4j
 
 # OpenRouter (for OpenAI-compatible models)
-OPENAI_API_KEY=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
+OPENAI_API_KEY=sk-or-v1-YOUR_OPENROUTER_KEY
 OPENAI_BASE_URL=https://openrouter.ai/api/v1
 OPENAI_MODEL=openai/gpt-4-turbo-preview
 
 # Pinecone (Vector Database)
-PINECONE_API_KEY=pcsk_5re6Dq_CUZ1oWcTPtUc2rVftcD2RuDPMwLwLhY3ubpnPiFy3nMBMoWPNff3h76stgtR9rM
+PINECONE_API_KEY=pcsk_YOUR_PINECONE_KEY
 PINECONE_INDEX_NAME=quickstart
 
 # Firecrawl (Web Scraping - Optional)
@@ -244,7 +244,7 @@ See all available models at: https://openrouter.ai/models
 python -c "
 from neo4j import GraphDatabase
 driver = GraphDatabase.driver(
-    'neo4j+s://85da7327.databases.neo4j.io',
+    'neo4j+s://YOUR_INSTANCE.databases.neo4j.io',
     auth=('neo4j', 'pcJR-Ag3HCFkHLCY2-_YdbvePns7w1ThoB34aozaGsw')
 )
 driver.verify_connectivity()
@@ -263,7 +263,7 @@ If this fails:
 ```bash
 # Test API key
 curl https://openrouter.ai/api/v1/models \
-  -H "Authorization: Bearer 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"
+  -H "Authorization: Bearer sk-or-v1-YOUR_OPENROUTER_KEY"
 ```
 
 If this fails:
@@ -277,7 +277,7 @@ If this fails:
 # Test Pinecone
 python -c "
 from pinecone import Pinecone
-pc = Pinecone(api_key='pcsk_5re6Dq_CUZ1oWcTPtUc2rVftcD2RuDPMwLwLhY3ubpnPiFy3nMBMoWPNff3h76stgtR9rM')
+pc = Pinecone(api_key='pcsk_YOUR_PINECONE_KEY')
 index = pc.Index('quickstart')
 print(f'✓ Connected! Vectors: {index.describe_index_stats()}')
 "

@@ -270,13 +270,13 @@ export const useConversationPersistence = () => {
     }
   }, [])
 
-  const loadConversation = (): UIMessage[] => {
+  const loadConversation = useCallback((): UIMessage[] => {
     try {
       // Check if we're in a browser environment
       if (typeof window === 'undefined' || !window.localStorage) {
         return []
       }
-      
+
       const saved = localStorage.getItem(CONVERSATION_STORAGE_KEY)
       const result = saved ? JSON.parse(saved) : []
       if (result.length > 0) {
@@ -287,16 +287,16 @@ export const useConversationPersistence = () => {
       console.error('Error loading conversation:', error)
       return []
     }
-  }
+  }, [])
 
-  const clearConversation = () => {
+  const clearConversation = useCallback(() => {
     if (typeof window === 'undefined' || !window.localStorage) {
       return
     }
     localStorage.removeItem(CONVERSATION_STORAGE_KEY)
     localStorage.removeItem('papertrail_conversation_id')
     clearLocalMemories()
-  }
+  }, [])
 
   return {
     saveConversation,

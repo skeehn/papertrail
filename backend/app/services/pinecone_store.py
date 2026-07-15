@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 
 import structlog
 
-from app.core.config import settings
+from app.core import user_config
 from app.core.logging import get_logger
 
 logger = get_logger("pinecone")
@@ -28,25 +28,31 @@ class PineconeStore:
         self._connected = False
 
     async def connect(self) -> bool:
-        """Connect to Pinecone"""
-        if not PINECONE_AVAILABLE or not settings.PINECONE_API_KEY:
-            logger.warning("Pinecone not available - missing client or API key")
+        """Connect to Pinecone. Optional — the app runs fine without it."""
+        api_key = user_config.get_key("PINECONE_API_KEY")
+        if not PINECONE_AVAILABLE or not api_key:
+            logger.info(
+                "Pinecone not configured - semantic search will fall back to keywords"
+            )
+            self._connected = False
             return False
 
+        host = user_config.get_key("PINECONE_HOST")
+        index_name = user_config.get_key("PINECONE_INDEX_NAME")
         try:
-            self._client = Pinecone(api_key=settings.PINECONE_API_KEY)
+            self._client = Pinecone(api_key=api_key)
 
-            if settings.PINECONE_HOST:
-                self._index = self._client.Index(host=settings.PINECONE_HOST)
-            elif settings.PINECONE_INDEX_NAME:
-                self._index = self._client.Index(settings.PINECONE_INDEX_NAME)
+            if host:
+                self._index = self._client.Index(host=host)
+            elif index_name:
+                self._index = self._client.Index(index_name)
+            else:
+                logger.info("Pinecone key set but no index/host configured")
+                self._connected = False
+                return False
 
             self._connected = True
-            logger.info(
-                "Connected to Pinecone",
-                index=settings.PINECONE_INDEX_NAME,
-                host=settings.PINECONE_HOST,
-            )
+            logger.info("Connected to Pinecone", index=index_name, host=host)
             return True
 
         except Exception as e:
@@ -71,62 +77,46 @@ class PineconeStore:
         documents: List[Dict[str, Any]],
         embeddings: Optional[List[List[float]]] = None,
     ) -> List[str]:
-        """Add documents to Pinecone"""
+        """Add documents to Pinecone using server-side integrated embeddings.
+
+        The ``papertrail`` index has an integrated model (llama-text-embed-v2)
+        that embeds the ``text`` field on upsert — no local embedding model
+        (sentence-transformers / torch) is required.
+        """
         if not self.is_connected:
             logger.warning("Pinecone not connected, skipping document addition")
             return []
 
         try:
-            ids = []
-            vectors = []
-            target_dimension = 1024  # Pinecone index dimension
-
-            # Generate embeddings if not provided
-            if not embeddings:
-                try:
-                    from sentence_transformers import SentenceTransformer
-
-                    model = SentenceTransformer("all-MiniLM-L6-v2")
-                    texts = [doc.get("text", "")[:1000] for doc in documents]
-                    raw_embeddings = model.encode(texts, show_progress_bar=False)
-                    embeddings = [emb.tolist() for emb in raw_embeddings]
-                except ImportError:
-                    logger.error("sentence-transformers not available")
-                    return []
-
+            records: List[Dict[str, Any]] = []
+            ids: List[str] = []
             for i, doc in enumerate(documents):
-                doc_id = doc.get("id", f"doc_{i}")
-                ids.append(doc_id)
-
-                # Pad or truncate embedding to target dimension
-                embedding = embeddings[i] if i < len(embeddings) else []
-                if len(embedding) < target_dimension:
-                    # Pad with zeros
-                    embedding = embedding + [0.0] * (target_dimension - len(embedding))
-                else:
-                    # Truncate if too long
-                    embedding = embedding[:target_dimension]
-
-                metadata = {
-                    "text": doc.get("text", "")[:10000],
-                    "title": doc.get("metadata", {}).get("title", ""),
-                    "arxiv_id": doc.get("metadata", {}).get("arxiv_id", ""),
-                    "authors": doc.get("metadata", {}).get("authors", []),
-                    "created_at": datetime.utcnow().isoformat(),
-                }
-
-                vectors.append(
+                meta = doc.get("metadata", {}) or {}
+                arxiv_id = meta.get("arxiv_id") or doc.get("id") or f"doc_{i}"
+                rec_id = doc.get("id") or f"paper_{arxiv_id}"
+                ids.append(rec_id)
+                authors = meta.get("authors", [])
+                if isinstance(authors, list):
+                    authors = ", ".join(str(a) for a in authors)
+                records.append(
                     {
-                        "id": doc_id,
-                        "values": embedding,
-                        "metadata": metadata,
+                        "_id": rec_id,
+                        # embedded field (per the index field_map)
+                        "text": (doc.get("text") or "")[:8000],
+                        "type": "paper",
+                        "arxiv_id": str(arxiv_id),
+                        "title": meta.get("title", ""),
+                        "authors": str(authors or ""),
+                        "abstract": (meta.get("abstract") or doc.get("text") or "")[
+                            :4000
+                        ],
                     }
                 )
 
-            if vectors:
-                self._index.upsert(vectors=vectors, namespace="papers")
+            if records:
+                self._index.upsert_records(namespace="papers", records=records)
 
-            logger.info(f"Added {len(ids)} documents to Pinecone")
+            logger.info(f"Upserted {len(ids)} documents to Pinecone (integrated embed)")
             return ids
 
         except Exception as e:
@@ -135,65 +125,49 @@ class PineconeStore:
 
     async def search(
         self,
-        query_embedding: Optional[List[float]] = None,
-        top_k: int = 10,
-        filter: Optional[Dict[str, Any]] = None,
         query_text: Optional[str] = None,
+        top_k: int = 10,
+        k: Optional[int] = None,
+        filter: Optional[Dict[str, Any]] = None,
+        query_embedding: Optional[List[float]] = None,
     ) -> List[Dict[str, Any]]:
-        """Search for similar documents"""
+        """Semantic search via the index's integrated embedding model."""
         if not self.is_connected:
             logger.warning("Pinecone not connected, returning empty results")
             return []
 
+        if k:
+            top_k = k
+        if not query_text:
+            logger.warning("No query text provided for search")
+            return []
+
         try:
-            # Generate embedding from text if query_text is provided
-            if query_text and not query_embedding:
-                try:
-                    from sentence_transformers import SentenceTransformer
-
-                    model = SentenceTransformer("all-MiniLM-L6-v2")
-                    raw_embedding = model.encode(
-                        [query_text], show_progress_bar=False
-                    ).tolist()[0]
-                    # Pad to target dimension
-                    target_dimension = 1024
-                    if len(raw_embedding) < target_dimension:
-                        query_embedding = raw_embedding + [0.0] * (
-                            target_dimension - len(raw_embedding)
-                        )
-                    else:
-                        query_embedding = raw_embedding[:target_dimension]
-                except ImportError:
-                    logger.error(
-                        "sentence-transformers not available for query embedding"
-                    )
-                    return []
-
-            if not query_embedding:
-                logger.error("No query embedding or text provided for search")
-                return []
-
-            # Build query params
-            query_params = {
-                "vector": query_embedding,
-                "top_k": top_k,
-                "namespace": "papers",
-                "include_metadata": True,
-            }
-
-            if filter:
-                query_params["filter"] = filter
-
-            results = self._index.query(**query_params)
+            resp = self._index.search(
+                namespace="papers",
+                query={"inputs": {"text": query_text}, "top_k": top_k},
+                fields=["title", "abstract", "authors", "arxiv_id", "type", "text"],
+            )
+            data = resp.to_dict() if hasattr(resp, "to_dict") else dict(resp)
+            hits = (data.get("result") or {}).get("hits") or []
 
             matches = []
-            for match in results.get("matches", []):
+            for h in hits:
+                hit_id = h.get("_id") or h.get("id_") or h.get("id") or ""
+                score = h.get("_score") or h.get("score_") or h.get("score") or 0.0
+                fields = h.get("fields", {}) or {}
                 matches.append(
                     {
-                        "id": match.get("id"),
-                        "score": match.get("score", 0.0),
-                        "metadata": match.get("metadata", {}),
-                        "text": match.get("metadata", {}).get("text", ""),
+                        "id": hit_id,
+                        "score": score,
+                        "metadata": {
+                            "type": fields.get("type", "paper"),
+                            "arxiv_id": fields.get("arxiv_id", ""),
+                            "title": fields.get("title", ""),
+                            "authors": fields.get("authors", ""),
+                            "abstract": fields.get("abstract", ""),
+                        },
+                        "text": fields.get("text", ""),
                     }
                 )
 
@@ -253,7 +227,7 @@ class PineconeStore:
             documents = []
             if total_count > 0:
                 query_params = {
-                    "vector": [0.0] * settings.PINECONE_DIMENSION,
+                    "vector": [0.0] * 1024,
                     "top_k": min(limit, 1000),
                     "namespace": "papers",
                     "include_metadata": True,
@@ -290,9 +264,9 @@ class PineconeStore:
             return {
                 "total_documents": papers_count,
                 "connected": True,
-                "index_name": settings.PINECONE_INDEX_NAME,
-                "host": settings.PINECONE_HOST,
-                "dimension": settings.PINECONE_DIMENSION,
+                "index_name": user_config.get_key("PINECONE_INDEX_NAME"),
+                "host": user_config.get_key("PINECONE_HOST"),
+                "dimension": 1024,
             }
 
         except Exception as e:

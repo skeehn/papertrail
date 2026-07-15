@@ -48,18 +48,18 @@ Complete guide for deploying Papertrail to production.
 3. **Environment Variables**
    ```
    # Neo4j
-   NEO4J_URI=neo4j+s://85da7327.databases.neo4j.io
+   NEO4J_URI=neo4j+s://YOUR_INSTANCE.databases.neo4j.io
    NEO4J_USER=neo4j
-   NEO4J_PASSWORD=pcJR-Ag3HCFkHLCY2-_YdbvePns7w1ThoB34aozaGsw
+   NEO4J_PASSWORD=YOUR_NEO4J_PASSWORD
    NEO4J_DATABASE=neo4j
 
    # OpenRouter
-   OPENAI_API_KEY=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
+   OPENAI_API_KEY=sk-or-v1-YOUR_OPENROUTER_KEY
    OPENAI_BASE_URL=https://openrouter.ai/api/v1
    OPENAI_MODEL=openai/gpt-4-turbo-preview
 
    # Pinecone
-   PINECONE_API_KEY=pcsk_5re6Dq_CUZ1oWcTPtUc2rVftcD2RuDPMwLwLhY3ubpnPiFy3nMBMoWPNff3h76stgtR9rM
+   PINECONE_API_KEY=pcsk_YOUR_PINECONE_KEY
    PINECONE_INDEX_NAME=quickstart
 
    # Firecrawl (optional)

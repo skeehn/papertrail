@@ -268,14 +268,24 @@ def init_faiss() -> None:
 
 
 def add_documents_to_store(documents: List[Dict[str, Any]]) -> None:
-    """Add documents to the vector store"""
+    """Add documents to the local FAISS store.
+
+    Optional: FAISS + sentence-transformers are not installed by default (they
+    pull in torch, ~2GB). Semantic search is served by Pinecone's integrated
+    embeddings instead, so this is a no-op unless the extras are installed.
+    """
+    if not FAISS_AVAILABLE:
+        get_logger("faiss").debug("FAISS not installed - skipping local vector index")
+        return
     faiss_store.add_documents(documents)
 
 
 def search_documents(
     query: str, k: int = 10, filter_metadata: Optional[Dict[str, Any]] = None
 ) -> List[Dict[str, Any]]:
-    """Search for documents"""
+    """Search the local FAISS store (empty when FAISS is not installed)."""
+    if not FAISS_AVAILABLE:
+        return []
     return faiss_store.search(query, k, filter_metadata)
 
 

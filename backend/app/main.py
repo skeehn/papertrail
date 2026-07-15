@@ -75,7 +75,7 @@ app.add_middleware(
 app.include_router(api_router, prefix="/api/v1")
 
 # WebSocket endpoint
-app.add_websocket_route("/ws", websocket_endpoint)
+app.add_api_websocket_route("/ws", websocket_endpoint)
 
 
 # Health check endpoint

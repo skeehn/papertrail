@@ -1,33 +1,26 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import EnhancedChat from '@/components/chat/enhanced-chat'
+import { CHAT_MODELS } from '@/lib/chat-models'
 
-// Mock the useAgentChat hook
-vi.mock('@/hooks/use-agent-chat', () => ({
-  useAgentChat: () => ({
+const sendMessage = vi.fn()
+
+// The chat streams via the AI SDK; stub the hook so tests stay offline.
+vi.mock('@ai-sdk/react', () => ({
+  useChat: () => ({
     messages: [],
-    isLoading: false,
-    error: null,
-    selectedAgent: 'synthesizer',
-    setSelectedAgent: vi.fn(),
-    sendMessage: vi.fn(),
-    clearMessages: vi.fn(),
+    sendMessage,
+    status: 'ready',
+    error: undefined,
+    stop: vi.fn(),
+    setMessages: vi.fn(),
   }),
 }))
 
-// Mock the useWebSocket hook
-vi.mock('@/hooks/use-websocket', () => ({
-  useWebSocket: () => ({
-    isConnected: false,
-    connectionId: null,
-    sendMessage: vi.fn(),
-    subscribe: vi.fn(),
-    unsubscribe: vi.fn(),
-    lastMessage: null,
-    error: null,
-    connect: vi.fn(),
-    disconnect: vi.fn(),
-  }),
+vi.mock('ai', () => ({
+  DefaultChatTransport: class {
+    constructor(_opts: unknown) {}
+  },
 }))
 
 describe('EnhancedChat', () => {
@@ -35,29 +28,50 @@ describe('EnhancedChat', () => {
     vi.clearAllMocks()
   })
 
-  it('renders welcome message when no messages', () => {
+  it('renders the welcome state', () => {
     render(<EnhancedChat />)
-    expect(screen.getByText(/Welcome to PaperTrail/i)).toBeInTheDocument()
+    expect(screen.getByText(/Welcome to/i)).toBeInTheDocument()
+    expect(
+      screen.getByPlaceholderText(/Ask about your research papers/i)
+    ).toBeInTheDocument()
   })
 
-  it('renders file upload button', () => {
+  it('shows the model picker with the default model', () => {
     render(<EnhancedChat />)
-    const uploadButton = screen.getByRole('button', { name: /upload/i })
-    expect(uploadButton).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: new RegExp(CHAT_MODELS[0].label, 'i') })
+    ).toBeInTheDocument()
   })
 
-  it('renders agent selector', () => {
+  it('lists every available model when the picker is opened', () => {
     render(<EnhancedChat />)
-    // Agent selector uses buttons for each agent type
-    expect(screen.getByRole('button', { name: /synthesizer/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /critic/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /connector/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /reasoning/i })).toBeInTheDocument()
+    fireEvent.click(
+      screen.getByRole('button', { name: new RegExp(CHAT_MODELS[0].label, 'i') })
+    )
+    CHAT_MODELS.forEach((m) => {
+      expect(screen.getAllByText(m.label).length).toBeGreaterThan(0)
+    })
   })
 
-  it('renders input textarea', () => {
+  it('disables send until the user types, then sends the message', () => {
     render(<EnhancedChat />)
-    const textarea = screen.getByPlaceholderText(/Ask about your research papers/i)
-    expect(textarea).toBeInTheDocument()
+    const send = screen.getByRole('button', { name: /send message/i })
+    expect(send).toBeDisabled()
+
+    fireEvent.change(screen.getByPlaceholderText(/Ask about your research papers/i), {
+      target: { value: 'what papers do I have?' },
+    })
+    expect(send).not.toBeDisabled()
+
+    fireEvent.click(send)
+    expect(sendMessage).toHaveBeenCalledWith(
+      { text: 'what papers do I have?' },
+      { body: { modelId: CHAT_MODELS[0].id } }
+    )
+  })
+
+  it('offers an attach control for PDFs', () => {
+    render(<EnhancedChat />)
+    expect(screen.getByRole('button', { name: /attach/i })).toBeInTheDocument()
   })
 })

@@ -15,8 +15,9 @@ logger = get_logger("database")
 # For backward compatibility - helix_store is now hydradb_store
 helix_store = hydradb_store
 
-# Flag to track if HydraDB is connected
+# Older endpoints still import HELIXDB_CONNECTED.
 HYDRADB_CONNECTED = False
+HELIXDB_CONNECTED = HYDRADB_CONNECTED
 
 
 async def init_database() -> None:

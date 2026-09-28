@@ -4,7 +4,7 @@ import { z } from 'zod'
 import { getModel } from '@/lib/chat-models'
 import { getProviderCreds } from '@/lib/server-config'
 
-export const maxDuration = 120
+export const maxDuration = 300
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000'
 
@@ -78,8 +78,8 @@ export async function POST(req: Request) {
 
     const provider = createOpenAI({ baseURL: creds.baseURL, apiKey: creds.apiKey })
 
-    // Reasoning models on OpenRouter otherwise leak chain-of-thought into the
-    // answer; ask the router to drop it.
+    // `reasoning.exclude` strips inline CoT from message text; the SDK still
+    // streams reasoning parts, so the UI's Thinking block keeps working.
     const providerOptions =
       model.provider === 'openrouter'
         ? { openai: { reasoning: { exclude: true } } as any }

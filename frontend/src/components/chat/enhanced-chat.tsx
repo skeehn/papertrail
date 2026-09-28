@@ -1,11 +1,13 @@
 "use client"
 
-import React, { useEffect, useRef, useState, useCallback } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport } from 'ai'
+import type { UIMessage } from 'ai'
 import {
   Brain, Paperclip, ArrowUp, FileText, X, Copy, Check, RefreshCw,
   CheckCircle2, Loader2, Plus, ChevronDown, Search, BookPlus, Square,
+  ChevronRight, TriangleAlert,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import ReactMarkdown from 'react-markdown'
@@ -14,6 +16,10 @@ import remarkMath from 'remark-math'
 import rehypeKatex from 'rehype-katex'
 import { useDropzone } from 'react-dropzone'
 import { CHAT_MODELS, DEFAULT_MODEL_ID, getModel } from '@/lib/chat-models'
+import {
+  conversationStore,
+  newConversationId,
+} from '@/lib/conversations'
 
 const SUGGESTIONS = [
   'What papers do I have on graph neural networks?',
@@ -21,6 +27,91 @@ const SUGGESTIONS = [
   'Find contradictions or gaps across my papers',
   'Index arxiv.org/abs/2512.24601',
 ]
+
+function textOf(m: UIMessage): string {
+  return (m.parts ?? [])
+    .filter((p): p is { type: 'text'; text: string } => p.type === 'text')
+    .map((p) => p.text)
+    .join('')
+}
+
+function reasoningOf(m: UIMessage): string {
+  return (m.parts ?? [])
+    .filter((p: any) => p?.type === 'reasoning')
+    .map((p: any) => p.text ?? '')
+    .join('')
+    .trim()
+}
+
+/* ---------------- Tool chips ---------------- */
+
+interface ToolPartLike {
+  type: string
+  state?: string
+  input?: any
+  output?: any
+  errorText?: string
+}
+
+export function ToolChip({ part }: { part: ToolPartLike }) {
+  const name = part.type.replace(/^tool-/, '')
+  const Icon = name === 'indexArxiv' ? BookPlus : Search
+  const isIndex = name === 'indexArxiv'
+  const done = part.state === 'output-available'
+  const errored = part.state === 'output-error'
+  const count = done && part.output?.papers ? part.output.papers.length : null
+
+  if (errored) {
+    return (
+      <div className="mb-2 flex items-center gap-1.5 text-xs text-destructive">
+        <TriangleAlert className="h-3.5 w-3.5" />
+        <span>
+          {isIndex ? 'Indexing failed' : 'Search failed'}
+          {part.errorText ? <span className="ml-1 opacity-70">{part.errorText}</span> : null}
+        </span>
+      </div>
+    )
+  }
+
+  return (
+    <div className="mb-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+      {done ? <Icon className="h-3.5 w-3.5 text-primary" /> : <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />}
+      {isIndex
+        ? (done
+          ? <span>Indexed <span className="text-foreground">{part.output?.title || part.output?.arxiv_id || 'paper'}</span></span>
+          : <span>Indexing <span className="text-foreground">{part.input?.id_or_url || 'paper'}…</span></span>)
+        : (done
+          ? <span>Searched papers · <span className="text-foreground">{count ?? 0} found</span></span>
+          : <span>Searching papers{part.input?.query ? <> for <span className="text-foreground">“{part.input.query}”</span></> : ''}…</span>)}
+    </div>
+  )
+}
+
+/* ---------------- Thinking block ---------------- */
+
+function ThinkingBlock({ text, streaming }: { text: string; streaming: boolean }) {
+  const [open, setOpen] = useState(false)
+  if (!text) return null
+  return (
+    <div className="mb-3 rounded-xl border border-border/70 bg-muted/30 overflow-hidden">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center gap-2 px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+      >
+        {streaming
+          ? <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+          : <Brain className="h-3.5 w-3.5" />}
+        {streaming ? 'Thinking…' : 'Thought process'}
+        <ChevronRight className={cn('ml-auto h-3.5 w-3.5 transition-transform', open && 'rotate-90')} />
+      </button>
+      {open && (
+        <div className="border-t border-border/60 px-3 py-2.5 text-xs leading-relaxed text-muted-foreground whitespace-pre-wrap max-h-72 overflow-y-auto thin-scroll">
+          {text}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function EnhancedChat() {
   const [input, setInput] = useState('')
@@ -40,12 +131,87 @@ export default function EnhancedChat() {
   const formRef = useRef<HTMLFormElement | null>(null)
   const uploadAbortRef = useRef<AbortController | null>(null)
 
-  const { messages, sendMessage, status, error, stop, setMessages } = useChat({
+  /* ---------------- Conversations state ---------------- */
+  const [conversations, setConversations] = useState(
+    () => (typeof window === 'undefined' ? [] : conversationStore.list())
+  )
+  const [activeId, setActiveId] = useState<string | null>(null)
+  const activeIdRef = useRef<string | null>(null)
+  const switchGuardRef = useRef<string | null>(null) // id we're currently restoring
+
+  const refreshConversations = useCallback(() => {
+    setConversations(conversationStore.list())
+  }, [])
+
+  useEffect(() => {
+    refreshConversations()
+    const unsub = conversationStore.subscribe(refreshConversations)
+    const onStorage = (e: StorageEvent) => {
+      if (!e.key || e.key === 'papertrail_conversations_index') refreshConversations()
+    }
+    window.addEventListener('storage', onStorage)
+    return () => {
+      unsub()
+      window.removeEventListener('storage', onStorage)
+    }
+  }, [refreshConversations])
+
+  const { messages, sendMessage, status, error, stop, setMessages, regenerate } = useChat({
     transport: new DefaultChatTransport({ api: '/api/chat' }),
+    onFinish: () => {
+      const id = activeIdRef.current
+      if (id) conversationStore.save(id, messagesRef.current, { modelId: modelRef.current })
+      refreshConversations()
+    },
   })
 
   const isBusy = status === 'submitted' || status === 'streaming'
   const activeModel = getModel(modelId)
+  const modelRef = useRef(modelId)
+  modelRef.current = modelId
+  const messagesRef = useRef(messages)
+  messagesRef.current = messages
+
+  const persistSnapshot = useCallback(
+    (id: string | null, snapshot: UIMessage[]) => {
+      if (!id) return
+      conversationStore.save(id, snapshot, { modelId: modelRef.current })
+      refreshConversations()
+    },
+    [refreshConversations]
+  )
+
+  /* Persist incrementally while streaming so interruptions are not lost */
+  useEffect(() => {
+    if (status !== 'streaming' && status !== 'submitted') return
+    if (switchGuardRef.current) return
+    persistSnapshot(activeIdRef.current, messages)
+  }, [messages, status, persistSnapshot])
+
+  /* Restore on first mount: explicit target (sidebar from another route)
+     wins; otherwise resume the most recent conversation. */
+  const restoredRef = useRef(false)
+  useEffect(() => {
+    if (restoredRef.current) return
+    restoredRef.current = true
+    let pendingId: string | null = null
+    try {
+      pendingId = sessionStorage.getItem('papertrail_open_conversation')
+      sessionStorage.removeItem('papertrail_open_conversation')
+    } catch { /* no sessionStorage */ }
+
+    const list = conversationStore.list()
+    setConversations(list)
+    const target = (pendingId && list.find((c) => c.id === pendingId)) || list[0]
+    if (target) {
+      switchGuardRef.current = target.id
+      activeIdRef.current = target.id
+      setActiveId(target.id)
+      setMessages(conversationStore.load(target.id))
+      if (target.modelId) setModelId(target.modelId)
+      switchGuardRef.current = null
+    }
+  }, [setMessages])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -58,12 +224,108 @@ export default function EnhancedChat() {
     el.style.height = `${Math.min(el.scrollHeight, 220)}px`
   }, [input])
 
-  const onSubmit = (e: React.FormEvent) => {
+  /* Native window-capture listener instead of a React onKeyDown: delegated
+     keydown was observably not delivered to this textarea (clicks fired,
+     Enter did not). Refs and React state are deliberately avoided — they
+     were observed to go stale across dev remounts. Do not "simplify" back
+     to an inline onKeyDown without re-testing Enter. */
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Enter' || e.shiftKey || e.isComposing || !e.cancelable) return
+      const el = e.target as HTMLElement | null
+      if (!el || el.tagName !== 'TEXTAREA') return
+      const form = el.closest('form') as HTMLFormElement | null
+      if (!form) return
+      e.preventDefault()
+      form.requestSubmit()
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [])
+
+  const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (!input.trim() || isBusy) return
-    sendMessage({ text: input }, { body: { modelId } })
+    // The composer's live DOM value is the source of truth: React state can
+    // lag behind the textarea under some input-event paths.
+    const ta = e.currentTarget.querySelector('textarea')
+    const text = ta ? ta.value : input
+    if (!text.trim() || isBusy) return
+
+    // First message in a brand-new chat: mint an id before the request flies.
+    if (!activeIdRef.current) {
+      const id = newConversationId()
+      activeIdRef.current = id
+      setActiveId(id)
+    }
+    sendMessage({ text }, { body: { modelId } })
+    if (ta) ta.value = ''
     setInput('')
   }
+
+  const startNewChat = useCallback(() => {
+    stop()
+    setMessages([])
+    activeIdRef.current = null
+    setActiveId(null)
+    setInput('')
+  }, [stop, setMessages])
+
+  const switchTo = useCallback(
+    (id: string) => {
+      if (id === activeIdRef.current) return
+      stop()
+      switchGuardRef.current = id
+      activeIdRef.current = id
+      setActiveId(id)
+      setMessages(conversationStore.load(id))
+      switchGuardRef.current = null
+    },
+    [stop, setMessages]
+  )
+
+  const deleteConversation = useCallback(
+    (id: string) => {
+      conversationStore.remove(id)
+      refreshConversations()
+      if (id === activeIdRef.current) startNewChat()
+    },
+    [refreshConversations, startNewChat]
+  )
+
+  const renameConversation = useCallback(
+    (id: string, title: string) => {
+      conversationStore.rename(id, title)
+      refreshConversations()
+    },
+    [refreshConversations]
+  )
+
+  const togglePinConversation = useCallback(
+    (id: string) => {
+      conversationStore.togglePinned(id)
+      refreshConversations()
+    },
+    [refreshConversations]
+  )
+
+  /* Expose sidebar actions globally (AppSidebar consumes these). */
+  useEffect(() => {
+    const w = window as any
+    w.__papertrailChat = {
+      conversations,
+      activeId,
+      startNewChat,
+      switchTo,
+      deleteConversation,
+      renameConversation,
+      togglePinConversation,
+    }
+    // Notify subscribers (sidebar) that the registry changed.
+    window.dispatchEvent(new CustomEvent('papertrail:chat-registry'))
+    return () => { delete (w as any).__papertrailChat }
+  }, [conversations, activeId, startNewChat, switchTo, deleteConversation, renameConversation, togglePinConversation])
+
+  /* ---------------- message helpers ---------------- */
 
   const copyMessage = async (id: string, text: string) => {
     try {
@@ -73,10 +335,8 @@ export default function EnhancedChat() {
     } catch { /* ignore */ }
   }
 
-  const textOf = (m: any) =>
-    (m.parts ?? []).filter((p: any) => p.type === 'text').map((p: any) => p.text).join('')
-
   /* ---------------- PDF upload ---------------- */
+
   const resetUpload = () => {
     setSelectedFile(null); setUploadStatus('idle'); setUploadProgress(0)
     setUploadError(null); setProcessingMessage(null)
@@ -124,9 +384,9 @@ export default function EnhancedChat() {
       <header className="flex h-14 shrink-0 items-center justify-between px-4 md:px-6">
         <span className="hidden text-sm text-muted-foreground sm:inline">PaperTrail</span>
         {!isEmpty && (
-          <button onClick={() => setMessages([])}
+          <button onClick={startNewChat}
             className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
-            <Plus className="h-3.5 w-3.5" /> New chat
+            <Plus /> New chat
           </button>
         )}
       </header>
@@ -156,34 +416,33 @@ export default function EnhancedChat() {
             </div>
           ) : (
             <div className="space-y-7 py-8">
-              {messages.map((m: any) => {
+              {messages.map((m) => {
+                const text = textOf(m)
                 if (m.role === 'user') {
                   return (
                     <div key={m.id} className="flex justify-end animate-in fade-in slide-in-from-bottom-2 duration-300">
                       <div className="max-w-[80%] rounded-2xl rounded-br-md bg-secondary px-4 py-2.5 text-[0.95rem] leading-relaxed">
-                        {textOf(m)}
+                        {text}
                       </div>
                     </div>
                   )
                 }
-                const text = textOf(m)
-                const tools = (m.parts ?? []).filter((p: any) => typeof p.type === 'string' && p.type.startsWith('tool-'))
+                const parts = m.parts ?? []
+                const tools = parts.filter(
+                  (p: any): p is ToolPartLike =>
+                    typeof p?.type === 'string' && p.type.startsWith('tool-')
+                )
+                const lastStreamingPart =
+                  status === 'streaming' && m.id === messages[messages.length - 1]?.id
+                const reasoningText = reasoningOf(m)
+                const isLastAssistant = m.id === messages[messages.length - 1]?.id && m.role === 'assistant'
+
                 return (
                   <div key={m.id} className="group animate-in fade-in slide-in-from-bottom-2 duration-300">
-                    {tools.map((t: any, i: number) => {
-                      const name = t.type.replace('tool-', '')
-                      const done = t.state === 'output-available'
-                      const count = done && t.output?.papers ? t.output.papers.length : null
-                      const Icon = name === 'indexArxiv' ? BookPlus : Search
-                      return (
-                        <div key={i} className="mb-2 flex items-center gap-1.5 text-xs text-muted-foreground">
-                          {done ? <Icon className="h-3.5 w-3.5 text-primary" /> : <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />}
-                          {name === 'indexArxiv'
-                            ? (done ? <span>Indexed <span className="text-foreground">{t.output?.title || t.output?.arxiv_id || 'paper'}</span></span> : <span>Indexing paper…</span>)
-                            : (done ? <span>Searched papers · <span className="text-foreground">{count ?? 0} found</span></span> : <span>Searching papers…</span>)}
-                        </div>
-                      )
-                    })}
+                    {reasoningText && (
+                      <ThinkingBlock text={reasoningText} streaming={lastStreamingPart && !text} />
+                    )}
+                    {tools.map((t, i) => <ToolChip key={i} part={t} />)}
                     {text && (
                       <div className="chat-markdown">
                         <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>
@@ -197,6 +456,12 @@ export default function EnhancedChat() {
                           className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground">
                           {copiedId === m.id ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
                         </button>
+                        {isLastAssistant && (
+                          <button onClick={() => regenerate()} title="Regenerate"
+                            className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground">
+                            <RefreshCw className="h-4 w-4" />
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>
@@ -207,7 +472,7 @@ export default function EnhancedChat() {
                 <div className="flex items-center gap-1.5">
                   {[0, 150, 300].map((d) => (
                     <span key={d} className="h-2 w-2 animate-bounce rounded-full bg-primary/70"
-                      style={{ '--animation-delay': d } as React.CSSProperties} />
+                      style={{ animationDelay: `${d}ms` } as React.CSSProperties} />
                   ))}
                 </div>
               )}
@@ -255,9 +520,9 @@ export default function EnhancedChat() {
           {error && (
             <div className="glass mb-3 flex items-center justify-between gap-3 rounded-2xl border border-destructive/40 p-3">
               <p className="text-sm text-destructive">{error.message}</p>
-              <button onClick={() => window.location.reload()}
+              <button onClick={() => startNewChat()}
                 className="flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90">
-                <RefreshCw className="h-3.5 w-3.5" /> Reload
+                <RefreshCw className="h-3.5 w-3.5" /> New chat
               </button>
             </div>
           )}
@@ -270,12 +535,6 @@ export default function EnhancedChat() {
               ref={textareaRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault()
-                  if (input.trim() && !isBusy) formRef.current?.requestSubmit()
-                }
-              }}
               placeholder={isDragActive ? 'Drop your PDF to index it…' : 'Ask about your research papers…'}
               rows={1}
               className="max-h-[220px] w-full resize-none bg-transparent px-4 pt-4 text-[0.975rem] leading-relaxed placeholder:text-muted-foreground focus:outline-none"

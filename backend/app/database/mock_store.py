@@ -66,6 +66,7 @@ class MockPaperStore:
             "created_at": datetime.utcnow().isoformat(),
             "status": "processed",
         }
+        self._save_data()
 
         return paper_id
 

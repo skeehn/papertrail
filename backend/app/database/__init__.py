@@ -1,4 +1,4 @@
-"""Database module with Neo4j support and fallback to mock store"""
+"""Database module with HydraDB (graph + vector) support and fallback to mock store"""
 
 from typing import Any, Dict, List, Optional
 
@@ -7,293 +7,138 @@ import structlog
 from app.core.config import settings
 from app.core.logging import get_logger
 from app.database.mock_store import mock_store
-from app.database.neo4j_client import Neo4jClient, neo4j_client
+from app.database.hydradb_store import hydradb_store
+from app.database.neo4j_client import GraphOperations
 
 logger = get_logger("database")
 
-# Flag to track if Neo4j is connected
-NEO4J_CONNECTED = False
+# For backward compatibility - helix_store is now hydradb_store
+helix_store = hydradb_store
+
+# Flag to track if HydraDB is connected
+HYDRADB_CONNECTED = False
 
 
 async def init_database() -> None:
     """Initialize database connections"""
-    global NEO4J_CONNECTED
+    global HYDRADB_CONNECTED
     try:
-        await neo4j_client.connect()
-        NEO4J_CONNECTED = True
-        logger.info("Database initialized with Neo4j connection")
+        await hydradb_store.connect()
+        HYDRADB_CONNECTED = True
+        logger.info("Database initialized with HydraDB connection")
     except Exception as e:
-        logger.warning(f"Neo4j connection failed, using mock store: {e}")
-        NEO4J_CONNECTED = False
+        logger.warning(f"HydraDB connection failed, using mock store: {e}")
+        HYDRADB_CONNECTED = False
 
 
-def get_paper_by_id(paper_id: str) -> Optional[Dict[str, Any]]:
-    """Get paper by ID from Neo4j or mock store"""
-    if NEO4J_CONNECTED:
+async def close_database() -> None:
+    """Close database connections"""
+    global HYDRADB_CONNECTED
+    if HYDRADB_CONNECTED:
+        await hydradb_store.disconnect()
+        HYDRADB_CONNECTED = False
+
+
+# Async wrapper functions for HydraDB operations
+async def get_paper_by_id_async(paper_id: str) -> Optional[Dict[str, Any]]:
+    """Get paper by ID from HydraDB or mock store"""
+    if HYDRADB_CONNECTED:
         try:
-            with neo4j_client.get_session() as session:
-                result = session.run(
-                    "MATCH (p:Paper {arxiv_id: $id}) RETURN p LIMIT 1", id=paper_id
-                )
-                record = result.single()
-                if record:
-                    paper = dict(record["p"])
-                    paper["id"] = paper.get("arxiv_id", paper_id)
-                    return paper
+            return await hydradb_store.get_paper_by_id(paper_id)
         except Exception as e:
-            logger.error(f"Failed to get paper from Neo4j: {e}")
+            logger.error(f"Failed to get paper from HydraDB: {e}")
 
     return mock_store.get_paper(paper_id)
 
 
-def list_papers(
+async def list_papers_async(
     skip: int = 0, limit: int = 20, search: str = None
 ) -> List[Dict[str, Any]]:
-    """List papers from Neo4j or mock store"""
-    if NEO4J_CONNECTED and search:
+    """List papers from HydraDB or mock store"""
+    if HYDRADB_CONNECTED:
         try:
-            with neo4j_client.get_session() as session:
-                # Search with Neo4j
-                result = session.run(
-                    """
-                    MATCH (p:Paper)
-                    WHERE p.title CONTAINS $search OR p.abstract CONTAINS $search
-                    RETURN p
-                    SKIP $skip
-                    LIMIT $limit
-                    """,
-                    search=search,
-                    skip=skip,
-                    limit=limit,
-                )
-                papers = []
-                for record in result:
-                    paper = dict(record["p"])
-                    paper["id"] = paper.get("arxiv_id", str(record["p"].id))
-                    papers.append(paper)
-                return papers
+            return await hydradb_store.list_papers(skip=skip, limit=limit, search=search)
         except Exception as e:
-            logger.error(f"Failed to search papers in Neo4j: {e}")
-
-    # Fall back to mock or Neo4j without search
-    if NEO4J_CONNECTED:
-        try:
-            with neo4j_client.get_session() as session:
-                result = session.run(
-                    """
-                    MATCH (p:Paper)
-                    RETURN p
-                    SKIP $skip
-                    LIMIT $limit
-                    """,
-                    skip=skip,
-                    limit=limit,
-                )
-                papers = []
-                for record in result:
-                    paper = dict(record["p"])
-                    paper["id"] = paper.get("arxiv_id", str(record["p"].id))
-                    papers.append(paper)
-                return papers
-        except Exception as e:
-            logger.error(f"Failed to get papers from Neo4j: {e}")
+            logger.error(f"Failed to list papers from HydraDB: {e}")
 
     return mock_store.list_papers(skip=skip, limit=limit, search=search)
 
 
-def delete_paper(paper_id: str) -> bool:
-    """Delete a paper from Neo4j or mock store"""
-    if NEO4J_CONNECTED:
+async def delete_paper_async(paper_id: str) -> bool:
+    """Delete a paper from HydraDB or mock store"""
+    if HYDRADB_CONNECTED:
         try:
-            with neo4j_client.get_session() as session:
-                result = session.run(
-                    "MATCH (p:Paper {arxiv_id: $id}) DETACH DELETE p", id=paper_id
-                )
-                return True
+            return await hydradb_store.delete_paper(paper_id)
         except Exception as e:
-            logger.error(f"Failed to delete paper from Neo4j: {e}")
+            logger.error(f"Failed to delete paper from HydraDB: {e}")
 
     return mock_store.delete_paper(paper_id)
 
 
-def get_paper_entities(paper_id: str) -> List[Dict[str, Any]]:
-    """Get entities for a paper from Neo4j or mock store"""
-    if NEO4J_CONNECTED:
+async def get_paper_entities_async(paper_id: str) -> List[Dict[str, Any]]:
+    """Get entities for a paper from HydraDB or mock store"""
+    if HYDRADB_CONNECTED:
         try:
-            with neo4j_client.get_session() as session:
-                result = session.run(
-                    """
-                    MATCH (p:Paper {arxiv_id: $id})-[:MENTIONS]->(e:Entity)
-                    RETURN e
-                    """,
-                    id=paper_id,
-                )
-                entities = []
-                for record in result:
-                    entity = dict(record["e"])
-                    entities.append(entity)
-                return entities
+            return await hydradb_store.get_paper_entities(paper_id)
         except Exception as e:
-            logger.error(f"Failed to get entities from Neo4j: {e}")
+            logger.error(f"Failed to get entities from HydraDB: {e}")
 
     return mock_store.get_paper_entities(paper_id)
 
 
-def get_related_papers(paper_id: str, limit: int = 10) -> List[Dict[str, Any]]:
-    """Get related papers from Neo4j or mock store"""
-    if NEO4J_CONNECTED:
+async def get_related_papers_async(paper_id: str, limit: int = 10) -> List[Dict[str, Any]]:
+    """Get related papers from HydraDB or mock store"""
+    if HYDRADB_CONNECTED:
         try:
-            with neo4j_client.get_session() as session:
-                result = session.run(
-                    """
-                    MATCH (p1:Paper {arxiv_id: $id})-[:CITES|RELATED_TO]-(p2:Paper)
-                    WITH p2, count(*) as rel_count
-                    ORDER BY rel_count DESC
-                    LIMIT $limit
-                    RETURN p2
-                    """,
-                    id=paper_id,
-                    limit=limit,
-                )
-                papers = []
-                for record in result:
-                    paper = dict(record["p2"])
-                    paper["id"] = paper.get("arxiv_id", str(record["p2"].id))
-                    papers.append(paper)
-                return papers
+            return await hydradb_store.get_related_papers(paper_id, limit=limit)
         except Exception as e:
-            logger.error(f"Failed to get related papers from Neo4j: {e}")
+            logger.error(f"Failed to get related papers from HydraDB: {e}")
 
     return mock_store.get_related_papers(paper_id, limit=limit)
 
 
-def store_paper(paper_data: dict) -> str:
-    """Store a paper to Neo4j or mock store"""
+async def store_paper_async(paper_data: dict) -> str:
+    """Store a paper to HydraDB or mock store"""
     paper_id = paper_data.get("arxiv_id") or paper_data.get("id")
 
-    if NEO4J_CONNECTED and paper_id:
+    if HYDRADB_CONNECTED and paper_id:
         try:
-            with neo4j_client.get_session() as session:
-                session.run(
-                    """
-                    MERGE (p:Paper {arxiv_id: $arxiv_id})
-                    SET p.title = $title,
-                        p.abstract = $abstract,
-                        p.authors = $authors,
-                        p.publication_date = $publication_date,
-                        p.journal = $journal,
-                        p.doi = $doi,
-                        p.created_at = $created_at
-                    """,
-                    arxiv_id=paper_id,
-                    title=paper_data.get("title", ""),
-                    abstract=paper_data.get("abstract", ""),
-                    authors=paper_data.get("authors", []),
-                    publication_date=paper_data.get("publication_date"),
-                    journal=paper_data.get("journal"),
-                    doi=paper_data.get("doi"),
-                    created_at=paper_data.get("created_at"),
-                )
-                return paper_id
+            return await hydradb_store.store_paper(paper_data)
         except Exception as e:
-            logger.error(f"Failed to store paper to Neo4j: {e}")
+            logger.error(f"Failed to store paper to HydraDB: {e}")
 
     return mock_store.store_paper(paper_data)
 
 
-def store_entities(paper_id: str, entities: list):
-    """Store entities to Neo4j or mock store"""
-    if NEO4J_CONNECTED:
+async def store_entities_async(paper_id: str, entities: list):
+    """Store entities to HydraDB or mock store"""
+    if HYDRADB_CONNECTED:
         try:
-            with neo4j_client.get_session() as session:
-                for entity in entities:
-                    session.run(
-                        """
-                        MERGE (e:Entity {name: $name})
-                        SET e.type = $type,
-                            e.confidence = $confidence
-                        WITH e
-                        MATCH (p:Paper {arxiv_id: $paper_id})
-                        MERGE (p)-[:MENTIONS]->(e)
-                        """,
-                        name=entity.get("name"),
-                        type=entity.get("type", "Entity"),
-                        confidence=entity.get("confidence", 0.0),
-                        paper_id=paper_id,
-                    )
-                return
+            return await hydradb_store.store_entities(paper_id, entities)
         except Exception as e:
-            logger.error(f"Failed to store entities to Neo4j: {e}")
+            logger.error(f"Failed to store entities to HydraDB: {e}")
 
     mock_store.store_entities(paper_id, entities)
 
 
-def store_relationships(paper_id: str, relationships: list):
-    """Store relationships to Neo4j or mock store"""
-    if NEO4J_CONNECTED:
+async def store_relationships_async(paper_id: str, relationships: list):
+    """Store relationships to HydraDB or mock store"""
+    if HYDRADB_CONNECTED:
         try:
-            with neo4j_client.get_session() as session:
-                for rel in relationships:
-                    session.run(
-                        """
-                        MATCH (e1:Entity {name: $source})
-                        MATCH (e2:Entity {name: $target})
-                        MERGE (e1)-[r:RELATES_TO {type: $rel_type}]->(e2)
-                        SET r.confidence = $confidence,
-                            r.paper_id = $paper_id
-                        """,
-                        source=rel.get("source"),
-                        target=rel.get("target"),
-                        rel_type=rel.get("type", "RELATED_TO"),
-                        confidence=rel.get("confidence", 0.0),
-                        paper_id=paper_id,
-                    )
-                return
+            return await hydradb_store.store_relationships(paper_id, relationships)
         except Exception as e:
-            logger.error(f"Failed to store relationships to Neo4j: {e}")
+            logger.error(f"Failed to store relationships to HydraDB: {e}")
 
     mock_store.store_relationships(paper_id, relationships)
 
 
-def get_graph_statistics() -> Dict[str, Any]:
-    """Get graph statistics from Neo4j or mock store"""
-    if NEO4J_CONNECTED:
+async def get_graph_statistics_async() -> Dict[str, Any]:
+    """Get graph statistics from HydraDB or mock store"""
+    if HYDRADB_CONNECTED:
         try:
-            with neo4j_client.get_session() as session:
-                # Get node counts by type
-                node_result = session.run(
-                    """
-                    MATCH (n)
-                    RETURN labels(n)[0] as type, count(*) as count
-                """
-                )
-                node_types = {}
-                for record in node_result:
-                    node_types[record["type"] or "Node"] = record["count"]
-
-                # Get relationship counts by type
-                rel_result = session.run(
-                    """
-                    MATCH ()-[r]->()
-                    RETURN type(r) as type, count(*) as count
-                """
-                )
-                rel_types = {}
-                for record in rel_result:
-                    rel_types[record["type"] or "RELATED"] = record["count"]
-
-                total_nodes = sum(node_types.values())
-                total_rels = sum(rel_types.values())
-
-                return {
-                    "node_count": total_nodes,
-                    "relationship_count": total_rels,
-                    "node_types": node_types,
-                    "relationship_types": rel_types,
-                    "source": "neo4j",
-                }
+            return await hydradb_store.get_graph_statistics()
         except Exception as e:
-            logger.error(f"Failed to get graph stats from Neo4j: {e}")
+            logger.error(f"Failed to get graph stats from HydraDB: {e}")
 
     # Fall back to mock
     return {
@@ -313,3 +158,151 @@ def get_graph_statistics() -> Dict[str, Any]:
         },
         "source": "mock_store",
     }
+
+
+# Synchronous wrappers for backward compatibility (run in thread pool if needed)
+def get_paper_by_id(paper_id: str) -> Optional[Dict[str, Any]]:
+    """Get paper by ID from HydraDB or mock store (sync)"""
+    import asyncio
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            # We're in an async context, create a task
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(asyncio.run, get_paper_by_id_async(paper_id))
+                return future.result()
+        else:
+            return asyncio.run(get_paper_by_id_async(paper_id))
+    except RuntimeError:
+        return asyncio.run(get_paper_by_id_async(paper_id))
+
+
+def list_papers(
+    skip: int = 0, limit: int = 20, search: str = None
+) -> List[Dict[str, Any]]:
+    """List papers from HydraDB or mock store (sync)"""
+    import asyncio
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(asyncio.run, list_papers_async(skip=skip, limit=limit, search=search))
+                return future.result()
+        else:
+            return asyncio.run(list_papers_async(skip=skip, limit=limit, search=search))
+    except RuntimeError:
+        return asyncio.run(list_papers_async(skip=skip, limit=limit, search=search))
+
+
+def delete_paper(paper_id: str) -> bool:
+    """Delete a paper from HydraDB or mock store (sync)"""
+    import asyncio
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(asyncio.run, delete_paper_async(paper_id))
+                return future.result()
+        else:
+            return asyncio.run(delete_paper_async(paper_id))
+    except RuntimeError:
+        return asyncio.run(delete_paper_async(paper_id))
+
+
+def get_paper_entities(paper_id: str) -> List[Dict[str, Any]]:
+    """Get entities for a paper from HydraDB or mock store (sync)"""
+    import asyncio
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(asyncio.run, get_paper_entities_async(paper_id))
+                return future.result()
+        else:
+            return asyncio.run(get_paper_entities_async(paper_id))
+    except RuntimeError:
+        return asyncio.run(get_paper_entities_async(paper_id))
+
+
+def get_related_papers(paper_id: str, limit: int = 10) -> List[Dict[str, Any]]:
+    """Get related papers from HydraDB or mock store (sync)"""
+    import asyncio
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(asyncio.run, get_related_papers_async(paper_id, limit=limit))
+                return future.result()
+        else:
+            return asyncio.run(get_related_papers_async(paper_id, limit=limit))
+    except RuntimeError:
+        return asyncio.run(get_related_papers_async(paper_id, limit=limit))
+
+
+def store_paper(paper_data: dict) -> str:
+    """Store a paper to HydraDB or mock store (sync)"""
+    import asyncio
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(asyncio.run, store_paper_async(paper_data))
+                return future.result()
+        else:
+            return asyncio.run(store_paper_async(paper_data))
+    except RuntimeError:
+        return asyncio.run(store_paper_async(paper_data))
+
+
+def store_entities(paper_id: str, entities: list):
+    """Store entities to HydraDB or mock store (sync)"""
+    import asyncio
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(asyncio.run, store_entities_async(paper_id, entities))
+                return future.result()
+        else:
+            return asyncio.run(store_entities_async(paper_id, entities))
+    except RuntimeError:
+        return asyncio.run(store_entities_async(paper_id, entities))
+
+
+def store_relationships(paper_id: str, relationships: list):
+    """Store relationships to HydraDB or mock store (sync)"""
+    import asyncio
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(asyncio.run, store_relationships_async(paper_id, relationships))
+                return future.result()
+        else:
+            return asyncio.run(store_relationships_async(paper_id, relationships))
+    except RuntimeError:
+        return asyncio.run(store_relationships_async(paper_id, relationships))
+
+
+def get_graph_statistics() -> Dict[str, Any]:
+    """Get graph statistics from HydraDB or mock store (sync)"""
+    import asyncio
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(asyncio.run, get_graph_statistics_async())
+                return future.result()
+        else:
+            return asyncio.run(get_graph_statistics_async())
+    except RuntimeError:
+        return asyncio.run(get_graph_statistics_async())

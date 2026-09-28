@@ -259,7 +259,7 @@ class ContradictionDetector:
         }
 
         try:
-            from app.database.neo4j_client import neo4j_client
+            from app.database import helix_store
 
             # Query Neo4j for contradictions involving this paper
             query = """
@@ -270,7 +270,7 @@ class ContradictionDetector:
             RETURN p2.arxiv_id as other_paper_id, c1.name as conflicting_claim
             """
 
-            result = neo4j_client.driver.session().run(query, paper_id=paper_id)
+            result = None  # Use helix_store.list_papers()
 
             for record in result:
                 other_paper = record["other_paper_id"]

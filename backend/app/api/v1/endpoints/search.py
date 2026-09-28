@@ -80,9 +80,9 @@ async def search_entities(
 ):
     """Search for entities by name or description"""
     try:
-        from app.database.neo4j_client import search_entities
+        from app.database import helix_store
 
-        results = search_entities(query, entity_type, limit)
+        results = helix_store.get_paper_entities(query)
 
         return {
             "query": query,
@@ -129,7 +129,7 @@ async def find_similar(
     try:
         if paper_id:
             # Find similar papers
-            from app.database.neo4j_client import get_related_papers
+            from app.database import helix_store
 
             similar_items = get_related_papers(paper_id, limit)
 
@@ -142,7 +142,7 @@ async def find_similar(
 
         elif entity_name:
             # Find similar entities
-            from app.database.neo4j_client import search_entities
+            from app.database import helix_store
 
             similar_items = search_entities(entity_name, limit=limit)
 

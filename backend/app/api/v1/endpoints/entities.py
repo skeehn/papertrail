@@ -4,7 +4,7 @@ import structlog
 from fastapi import APIRouter, HTTPException, Query
 
 from app.core.logging import get_logger
-from app.database.neo4j_client import get_entity_subgraph, search_entities
+from app.database import get_paper_entities, helix_store
 from app.models.schemas import EntityListResponse, EntityResponse
 
 router = APIRouter()

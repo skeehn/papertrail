@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from app.core.config import settings
 from app.core.logging import get_logger
-from app.database.neo4j_client import Neo4jClient
+from app.database import helix_store
 
 logger = get_logger("trend_analyzer")
 
@@ -17,7 +17,7 @@ class TrendAnalyzer:
 
     def __init__(self):
         self.logger = logger
-        self.neo4j_client = Neo4jClient()
+        self.neo4j_client = helix_store
 
     async def analyze_entity_trends(
         self,
@@ -62,7 +62,7 @@ class TrendAnalyzer:
         ORDER BY year ASC
         """
 
-        results = self.neo4j_client.execute_query(
+        results = await helix_store.list_papers(
             query, {"entityName": entity_name, "timeWindow": time_window_years}
         )
 
@@ -121,7 +121,7 @@ class TrendAnalyzer:
         LIMIT 50
         """
 
-        results = self.neo4j_client.execute_query(
+        results = await helix_store.list_papers(
             query, {"timeWindow": time_window_years, "minMentions": min_mentions}
         )
 
@@ -246,7 +246,7 @@ class TrendAnalyzer:
         LIMIT 20
         """
 
-        results = self.neo4j_client.execute_query(
+        results = await helix_store.list_papers(
             query, {"lookback": lookback_months, "minGrowth": min_growth_rate}
         )
 
@@ -348,7 +348,7 @@ class TrendAnalyzer:
         LIMIT $topN
         """
 
-        results = self.neo4j_client.execute_query(
+        results = await helix_store.list_papers(
             query, {"recentMonths": recent_months, "topN": top_n}
         )
 

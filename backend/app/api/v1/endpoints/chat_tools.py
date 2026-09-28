@@ -14,12 +14,12 @@ from pydantic import BaseModel, Field
 
 from app.core.logging import get_logger
 from app.database import (
-    NEO4J_CONNECTED,
-    neo4j_client,
+    HELIXDB_CONNECTED,
     store_entities,
     store_paper,
     store_relationships,
 )
+from app.database.mock_store import mock_store
 from app.services.arxiv_client import arxiv_client
 from app.services.pinecone_store import pinecone_store
 
@@ -37,47 +37,22 @@ class IndexRequest(BaseModel):
 
 
 def _keyword_fallback(query: str, limit: int) -> List[Dict[str, Any]]:
-    """Keyword-rank papers in Neo4j when vector search returns nothing."""
-    if not NEO4J_CONNECTED:
+    """Keyword-rank papers when vector search returns nothing."""
+    if not HELIXDB_CONNECTED:
         return []
-    words = [w.lower() for w in query.split() if len(w) > 3]
     try:
-        with neo4j_client.get_session() as session:
-            if words:
-                result = session.run(
-                    """
-                    MATCH (p:Paper)
-                    WITH p, toLower(coalesce(p.title,'') + ' ' + coalesce(p.abstract,'')) AS hay
-                    WITH p, size([w IN $words WHERE hay CONTAINS w]) AS score
-                    WHERE score > 0
-                    RETURN p.arxiv_id AS arxiv_id, p.title AS title,
-                           p.abstract AS abstract, p.authors AS authors
-                    ORDER BY score DESC LIMIT $limit
-                    """,
-                    words=words,
-                    limit=limit,
-                )
-                rows = [dict(r) for r in result]
-                if rows:
-                    return rows
-            result = session.run(
-                """
-                MATCH (p:Paper)
-                RETURN p.arxiv_id AS arxiv_id, p.title AS title,
-                       p.abstract AS abstract, p.authors AS authors
-                ORDER BY p.created_at DESC LIMIT $limit
-                """,
-                limit=limit,
-            )
-            return [dict(r) for r in result]
-    except Exception as e:  # noqa: BLE001
+        import asyncio
+        from app.database.helix_store import helix_store
+        papers = asyncio.run(helix_store.list_papers(limit=limit, search=query))
+        return papers
+    except Exception as e:
         logger.warning("Keyword fallback failed", error=str(e))
         return []
 
 
 @router.post("/search-papers")
 async def search_papers(request: SearchRequest) -> Dict[str, Any]:
-    """Semantic search over indexed papers (vector, with keyword fallback)."""
+    """Semantic search over indexed papers (vector, with fallback)."""
     papers: List[Dict[str, Any]] = []
     try:
         hits = await pinecone_store.search(
@@ -98,7 +73,30 @@ async def search_papers(request: SearchRequest) -> Dict[str, Any]:
         logger.warning("Vector search failed", error=str(e))
 
     if not papers:
-        papers = _keyword_fallback(request.query, request.limit)
+        if HELIXDB_CONNECTED:
+            papers = _keyword_fallback(request.query, request.limit)
+
+    if not papers:
+        try:
+            all_papers = list(mock_store.papers.values())
+            query_terms = request.query.lower().split()
+            for p in all_papers:
+                title = p.get("title", "").lower()
+                abstract = p.get("abstract", "").lower()
+                if any(term in title or term in abstract for term in query_terms):
+                    papers.append(
+                        {
+                            "arxiv_id": p.get("arxiv_id", ""),
+                            "title": p.get("title", ""),
+                            "abstract": p.get("abstract", "")[:1200],
+                            "authors": ", ".join(p.get("authors", [])),
+                            "score": 0.8,
+                        }
+                    )
+                    if len(papers) >= request.limit:
+                        break
+        except Exception as e:
+            logger.warning("Mock store search failed", error=str(e))
 
     logger.info("chat search-papers", query=request.query, results=len(papers))
     return {"papers": papers[: request.limit], "count": len(papers[: request.limit])}

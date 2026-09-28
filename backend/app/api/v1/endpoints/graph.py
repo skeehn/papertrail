@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, Query
 from app.core.cache import cached
 from app.core.logging import get_logger, log_graph_operation
 from app.database.mock_store import mock_store
-from app.database.neo4j_client import get_entity_subgraph
+from app.database import get_paper_entities, get_graph_statistics, HELIXDB_CONNECTED, helix_store
 from app.models.schemas import GraphQueryRequest, GraphResponse
 
 router = APIRouter()
@@ -90,48 +90,40 @@ async def query_graph(request: GraphQueryRequest):
             # No specific entity/paper: return an overview of the graph
             # (papers + the entities they mention) so the page has content.
             try:
-                from app.database import NEO4J_CONNECTED, neo4j_client
+                from app.database import HELIXDB_CONNECTED, helix_store
 
-                if not NEO4J_CONNECTED:
+                if not HELIXDB_CONNECTED:
                     return GraphResponse(nodes=[], edges=[])
 
                 nodes_by_id: dict = {}
                 edges = []
-                with neo4j_client.get_session() as session:
-                    result = session.run(
-                        """
-                        MATCH (p:Paper)-[:MENTIONS]->(e:Entity)
-                        RETURN p.arxiv_id AS pid, p.title AS ptitle,
-                               e.name AS ename, e.type AS etype
-                        LIMIT 200
-                        """
-                    )
-                    for r in result:
-                        pid = r["pid"] or r["ptitle"]
-                        if pid and pid not in nodes_by_id:
-                            nodes_by_id[pid] = {
-                                "id": pid,
-                                "label": (r["ptitle"] or pid)[:60],
-                                "type": "Paper",
-                                "properties": {"title": r["ptitle"]},
-                            }
-                        ename = r["ename"]
+                papers = await helix_store.list_papers(skip=0, limit=200)
+                for paper in papers:
+                    pid = paper.get("arxiv_id", "")
+                    if pid and pid not in nodes_by_id:
+                        nodes_by_id[pid] = {
+                            "id": pid,
+                            "label": (paper.get("title", pid) or pid)[:60],
+                            "type": "Paper",
+                            "properties": {"title": paper.get("title", "")},
+                        }
+                    entities = await helix_store.get_paper_entities(pid)
+                    for entity in entities:
+                        ename = entity.get("name", "")
                         if ename and ename not in nodes_by_id:
                             nodes_by_id[ename] = {
                                 "id": ename,
                                 "label": ename,
-                                "type": r["etype"] or "Entity",
+                                "type": entity.get("type", "Entity"),
                                 "properties": {},
                             }
                         if pid and ename:
-                            edges.append(
-                                {
-                                    "source": pid,
-                                    "target": ename,
-                                    "type": "MENTIONS",
-                                    "properties": {},
-                                }
-                            )
+                            edges.append({
+                                "source": pid,
+                                "target": ename,
+                                "type": "MENTIONS",
+                                "properties": {},
+                            })
                 return GraphResponse(nodes=list(nodes_by_id.values()), edges=edges)
             except Exception as e:
                 logger.warning(f"Overview graph query failed: {e}")
@@ -152,7 +144,7 @@ async def get_graph_statistics_endpoint():
 
         # Try to get real statistics from Neo4j
         try:
-            from app.database.neo4j_client import get_graph_statistics
+            from app.database import get_graph_statistics
 
             stats = get_graph_statistics()
 
@@ -168,7 +160,7 @@ async def get_graph_statistics_endpoint():
                     "relationship_types": stats.get("relationships", {}),
                 },
                 "timestamp": datetime.utcnow().isoformat(),
-                "source": "neo4j",
+                "source": "helixdb",
             }
         except Exception as e:
             logger.warning(f"Neo4j statistics failed, using fallback: {e}")
@@ -219,58 +211,32 @@ async def get_graph_nodes(
 ):
     """Get nodes from the knowledge graph"""
     try:
-        from app.database.neo4j_client import neo4j_client
+        from app.database import helix_store
 
-        if not neo4j_client._driver:
+        if not helix_store.is_connected:
             return {"nodes": [], "total": 0, "limit": limit, "skip": skip}
 
-        with neo4j_client.get_session() as session:
-            if node_type:
-                query = f"""
-                MATCH (n:{node_type})
-                RETURN n
-                SKIP $skip
-                LIMIT $limit
-                """
-                result = session.run(query, skip=skip, limit=limit)
-            else:
-                query = """
-                MATCH (n)
-                RETURN n
-                SKIP $skip
-                LIMIT $limit
-                """
-                result = session.run(query, skip=skip, limit=limit)
+        # Get papers from HelixDB
+        papers = await helix_store.list_papers(skip=skip, limit=limit)
 
         nodes = []
-        for record in result:
-            node = record["n"]
-            node_data = {
-                "id": node.get("arxiv_id") or node.get("name") or str(node.id),
-                "label": node.get("title")
-                or node.get("name")
-                or node.get("arxiv_id")
-                or str(node.id),
-                "type": list(node.labels)[0] if node.labels else "Node",
-                "properties": dict(node),
-            }
-            nodes.append(node_data)
+        for paper in papers:
+            nodes.append(
+                {
+                    "id": paper.get("id", paper.get("arxiv_id", "")),
+                    "label": paper.get("title", ""),
+                    "type": "Paper",
+                    "properties": paper,
+                }
+            )
 
-            # Get total count
-            if node_type:
-                count_query = f"MATCH (n:{node_type}) RETURN count(n) as total"
-            else:
-                count_query = "MATCH (n) RETURN count(n) as total"
-            count_result = session.run(count_query)
-            total = count_result.single()["total"] if count_result.peek() else 0
+        total = len(nodes)
 
         return {"nodes": nodes, "total": total, "limit": limit, "skip": skip}
-
     except Exception as e:
         logger.error("Failed to get graph nodes", error=str(e))
         # Return empty result on error rather than failing
         return {"nodes": [], "total": 0, "limit": limit, "skip": skip}
-
 
 @router.get("/edges")
 async def get_graph_edges(
@@ -280,54 +246,35 @@ async def get_graph_edges(
 ):
     """Get edges from the knowledge graph"""
     try:
-        from app.database.neo4j_client import neo4j_client
+        from app.database import helix_store
 
-        if not neo4j_client._driver:
+        if not helix_store.is_connected:
             return {"edges": [], "total": 0, "limit": limit, "skip": skip}
 
-        with neo4j_client.get_session() as session:
-            if edge_type:
-                query = f"""
-                MATCH (a)-[r:{edge_type}]->(b)
-                RETURN 
-                    coalesce(a.arxiv_id, a.name, toString(id(a))) as source,
-                    coalesce(b.arxiv_id, b.name, toString(id(b))) as target,
-                    type(r) as type,
-                    properties(r) as properties
-                SKIP $skip
-                LIMIT $limit
-                """
-                result = session.run(query, skip=skip, limit=limit)
-            else:
-                query = """
-                MATCH (a)-[r]->(b)
-                RETURN 
-                    coalesce(a.arxiv_id, a.name, toString(id(a))) as source,
-                    coalesce(b.arxiv_id, b.name, toString(id(b))) as target,
-                    type(r) as type,
-                    properties(r) as properties
-                SKIP $skip
-                LIMIT $limit
-                """
-                result = session.run(query, skip=skip, limit=limit)
+        # Get papers from HelixDB
+        papers = await helix_store.list_papers(skip=skip, limit=max(limit + skip, 20))
 
+        # Build edges from stored relationships
         edges = []
-        for record in result:
-            edge_data = {
-                "source": record["source"],
-                "target": record["target"],
-                "type": record["type"],
-                "properties": record["properties"] or {},
-            }
-            edges.append(edge_data)
+        
+        # Use helix_store to get entities and relationships
+        # For now, return basic structure
+        for paper in papers[:limit]:
+            paper_id = paper.get("arxiv_id", "")
+            entities = await helix_store.get_paper_entities(paper_id)
+            for entity in entities[:5]:  # Limit entities per paper
+                entity_name = entity.get("name", "")
+                if entity_name:
+                    edges.append({
+                        "source": paper_id,
+                        "target": entity_name,
+                        "type": "MENTIONS",
+                        "properties": {}
+                    })
 
-            # Get total count
-            if edge_type:
-                count_query = f"MATCH ()-[r:{edge_type}]->() RETURN count(r) as total"
-            else:
-                count_query = "MATCH ()-[r]->() RETURN count(r) as total"
-            count_result = session.run(count_query)
-            total = count_result.single()["total"] if count_result.peek() else 0
+        # Get total count approximation
+        total_papers = await helix_store.list_papers(limit=1)
+        total = len(total_papers) if total_papers else 0
 
         return {"edges": edges, "total": total, "limit": limit, "skip": skip}
 
@@ -393,9 +340,9 @@ async def get_shortest_paths(
 ):
     """Get shortest paths between nodes"""
     try:
-        from app.database.neo4j_client import neo4j_client
+        from app.database import helix_store
 
-        if not neo4j_client._driver:
+        if not helix_store.is_connected:
             return {
                 "source": source,
                 "target": target,
@@ -403,18 +350,11 @@ async def get_shortest_paths(
                 "max_length": max_length,
             }
 
-        with neo4j_client.get_session() as session:
-            query = """
-            MATCH path = shortestPath((a)-[*1..$max_length]-(b))
-            WHERE (a.arxiv_id = $source OR a.name = $source OR toString(id(a)) = $source)
-            AND (b.arxiv_id = $target OR b.name = $target OR toString(id(b)) = $target)
-            RETURN path
-            LIMIT 10
-            """
-
-            result = session.run(
-                query, source=source, target=target, max_length=max_length
-            )
+        # Get shortest paths - use HelixDB traversal
+            # Note: Graph path finding in HelixDB requires different approach
+            # For now, use the list_papers method to get papers and build paths
+            papers = await helix_store.list_papers(limit=100)
+            paths = []
 
             paths = []
             for record in result:

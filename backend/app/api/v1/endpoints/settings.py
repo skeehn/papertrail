@@ -69,7 +69,7 @@ async def _service_status() -> Dict[str, Any]:
 
     neo4j_ready = False
     try:
-        from app.database import NEO4J_CONNECTED
+        from app.database import HELIXDB_CONNECTED as NEO4J_CONNECTED
 
         neo4j_ready = bool(NEO4J_CONNECTED)
     except Exception:  # noqa: BLE001

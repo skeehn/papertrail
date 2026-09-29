@@ -15,7 +15,11 @@ logger = get_logger("search")
 async def semantic_search(request: SearchRequest):
     """Perform semantic search across papers and entities"""
     try:
-        papers = await hydradb_store.list_papers(search=request.query, limit=request.limit)
+        from app.database.local_vector import local_vector_store
+
+        papers = await local_vector_store.search(request.query, limit=request.limit)
+        if not papers:
+            papers = await hydradb_store.list_papers(search=request.query, limit=request.limit)
 
         formatted_results = []
         for paper in papers:

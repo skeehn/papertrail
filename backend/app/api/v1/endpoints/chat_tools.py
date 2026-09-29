@@ -51,12 +51,20 @@ async def _keyword_fallback(query: str, limit: int) -> List[Dict[str, Any]]:
 
 @router.post("/search-papers")
 async def search_papers(request: SearchRequest) -> Dict[str, Any]:
-    """Semantic search over indexed papers (HydraDB, with keyword fallback)."""
+    """Search over indexed papers: local vector first, HydraDB, keyword fallback."""
     papers: List[Dict[str, Any]] = []
     try:
-        papers = await hydradb_store.list_papers(search=request.query, limit=request.limit)
+        from app.database.local_vector import local_vector_store
+
+        papers = await local_vector_store.search(request.query, limit=request.limit)
     except Exception as e:  # noqa: BLE001
-        logger.warning("HydraDB search failed", error=str(e))
+        logger.warning("Local vector search failed", error=str(e))
+
+    if not papers:
+        try:
+            papers = await hydradb_store.list_papers(search=request.query, limit=request.limit)
+        except Exception as e:  # noqa: BLE001
+            logger.warning("HydraDB search failed", error=str(e))
 
     if not papers:
         papers = await _keyword_fallback(request.query, request.limit)

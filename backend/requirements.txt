@@ -46,3 +46,6 @@ black==24.10.0
 isort>=5.0.0
 flake8>=5.0.0
 mypy>=1.0.0
+# Local instant vector store (search without the cloud queue)
+lancedb>=0.39.0
+fastembed>=0.8.1

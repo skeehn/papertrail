@@ -173,6 +173,16 @@ class HydraDBStore:
         logger.info(
             "Paper stored in HydraDB", arxiv_id=paper_id, source_ids=self.last_source_ids
         )
+
+        # Mirror into the local vector store so the library is searchable
+        # instantly instead of waiting on the cloud queue.
+        try:
+            from app.database.local_vector import local_vector_store
+
+            await local_vector_store.upsert_paper(dict(paper_data, year=year))
+        except Exception as e:  # noqa: BLE001
+            logger.warning("Local vector mirror failed", error=str(e))
+
         return paper_id
 
     async def wait_until_indexed(

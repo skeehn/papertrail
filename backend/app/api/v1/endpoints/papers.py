@@ -168,13 +168,31 @@ async def list_papers(skip: int = 0, limit: int = 20, search: Optional[str] = No
         # Handle None search parameter properly - empty string means no search filter
         search_param = search if search else None
 
-        papers = db_list_papers(skip=skip, limit=limit, search=search_param)
+        # Local vector store is the instant source of truth; the cloud list
+        # only adds rows once the upstream indexer finishes.
+        papers = []
+        total_count = 0
+        try:
+            from app.database.local_vector import local_vector_store
 
-        # Bug fix: total should be count of ALL matching papers, not just returned slice
-        # Get total count by getting all matching papers (before pagination)
-        # This is inefficient but correct until mock_store has a count method
-        all_matching_papers = db_list_papers(skip=0, limit=999999, search=search_param)
-        total_count = len(all_matching_papers)
+            local = await local_vector_store.list_papers(skip=0, limit=999999)
+            if search_param:
+                q = search_param.lower()
+                local = [
+                    p
+                    for p in local
+                    if q in p.get("title", "").lower()
+                    or q in p.get("abstract", "").lower()
+                ]
+            total_count = len(local)
+            papers = local[skip : skip + limit]
+        except Exception as e:  # noqa: BLE001
+            logger.warning("Local list failed, falling back to HydraDB", error=str(e))
+
+        if not papers:
+            papers = db_list_papers(skip=skip, limit=limit, search=search_param)
+            all_matching_papers = db_list_papers(skip=0, limit=999999, search=search_param)
+            total_count = len(all_matching_papers)
 
         return PaperListResponse(
             papers=papers, total=total_count, skip=skip, limit=limit

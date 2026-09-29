@@ -140,20 +140,22 @@ def d1() -> Optional[str]:
     return asyncio.run(run())
 
 
-@case("d2_keyword_fallback_ranks", "search-grounding")
+@case("d2_local_search_ranks", "search-grounding")
 def d2() -> Optional[str]:
-    from app.api.v1.endpoints.chat_tools import _keyword_fallback
+    from app.database.local_vector import local_vector_store
 
     async def run() -> Optional[str]:
-        papers = await _keyword_fallback("Self-attention probe", 5)
-        # Empty library is an environment state (cloud indexing pending),
-        # not a regression — skip, don't fail.
+        papers = await local_vector_store.search(
+            "BERT pre-training language model", limit=3
+        )
+        # Empty store means seeding never ran in this environment — an
+        # environment state, not a regression. Skip, don't fail.
         if not papers:
-            print("SKIP [search-grounding] d2_keyword_fallback_ranks: library empty (indexing pending)")
+            print("SKIP [search-grounding] d2_local_search_ranks: library empty (run scripts/seed_demo.py)")
             return None
         top = papers[0]
         hay = f"{top.get('title', '')} {top.get('abstract', '')}".lower()
-        return None if "attention" in hay else f"top hit lacks keyword: {top}"
+        return None if "bert" in hay else f"top hit lacks keyword: {top}"
 
     return asyncio.run(run())
 

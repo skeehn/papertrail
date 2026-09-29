@@ -19,16 +19,15 @@ Paste an arXiv URL (or ask a question) and PaperTrail ingests the paper, extract
 flowchart LR
     U[User] -->|chat / upload| FE["Next.js 15 UI\n(streaming, tool chips, sidebar)"]
     FE -->|/api/chat·POST| RT["chat route\n(model router + tools)"]
-    RT -->|semantic search| BE["FastAPI backend"]
-    RT -->|indexArxiv| BE
-    BE -->|ingest/query| HD["HydraDB cloud API\n(vector + graph, attributes schema)"]
+    RT -->|searchPapers / indexArxiv| BE["FastAPI backend"]
+    BE --> LV["Local vector store\nFastEmbed + LanceDB\n(instant semantic search)"]
+    BE -->|mirrored ingest| HD["HydraDB cloud API\n(vector + graph + attributes)"]
     BE --> EE[Entity & relationship\nextraction]
     EE --> HD
-    BE --> FB["Keyword fallback\n+ mock store"]
     TM["Trend analyzer\n(in-memory aggregation)"] --> HD
 ```
 
-The interesting design bit: one retrieval path (`/api/v1/chat/search-papers`) is shared by every chat model. Tool-capable models drive the tools themselves; non-tool models get papers pre-fetched into context so they still answer grounded.
+The interesting design bit: one retrieval path (`/api/v1/chat/search-papers`) is shared by every chat model. Tool-capable models drive the tools themselves; non-tool models get papers pre-fetched into context so they still answer grounded. Ingesting a paper mirrors it into the local vector store immediately, so search is instant — the cloud queue only feeds the richer graph context later.
 
 ## Key decisions
 
@@ -36,6 +35,7 @@ The interesting design bit: one retrieval path (`/api/v1/chat/search-papers`) is
 - **In-memory trend analytics** instead of Cypher aggregations: the store is a document/vector service, so entity→paper mention stats aggregate in Python from source listings — O(n) over a personal library, no second query engine.
 - **Per-event-loop aiohttp sessions**: sync wrappers around async calls spin fresh loops (`asyncio.run`); a loop-bound session would die with "Event loop is closed" — the store recreates sessions when the loop changes.
 - **Composable keys**: API credentials resolve from `~/.papertrail/config.json` (written by the Settings page) falling back to env vars — local runs need no env setup.
+- **Local instant vector mirror**: every ingested paper is embedded locally (FastEmbed ONNX, BAAI/bge-small-en-v1.5 + LanceDB under `~/.papertrail/vector_db`), so library search returns hits in milliseconds, independent of the cloud indexer's queue.
 - **localStorage conversation store** for chat history with cross-tab sync: personal-library chat data stays client-side, and the sidebar works across every route without a context provider.
 
 ## Measured results
@@ -53,7 +53,7 @@ The harness found a real defect on its first run: the contradiction detector's n
 
 ## Honest limitations
 
-- **HydraDB cloud indexing is slow and occasionally stalls** (`202 queued` → minutes; a long `graph_creation` tail). Search results appear late, and the UI reports "queued" rather than pretending otherwise.
+- **HydraDB cloud indexing is slow and occasionally stalls** (`202 queued` → minutes; a long `graph_creation` tail). This no longer blocks search — the local vector store answers instantly — but the cloud-side graph context arrives late, and the UI reports "queued" rather than pretending otherwise.
 - **Entity/relationship extraction is heuristic + optional LLM-assisted** — entity quality varies on dense abstracts.
 - **Single-user**: settings keys and localStorage chats aren't shared across machines; no auth layer.
 - **Graph "traversal" is search-based**: HydraDB exposes documents, not graph walks, so related-paper expansion goes through semantic search instead.

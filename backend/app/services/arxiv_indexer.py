@@ -8,12 +8,11 @@ from typing import Any, Dict, List, Optional
 
 from app.core.config import settings
 from app.core.logging import get_logger
-from app.database import helix_store
+from app.database.hydradb_store import hydradb_store
 from app.services.arxiv_client import arxiv_client
 from app.services.entity_extractor import EntityExtractor
 from app.services.graph_builder import GraphBuilder
 from app.services.pdf_processor import PDFProcessor
-from app.services.pinecone_store import pinecone_store
 
 
 class ProcessingStatus(str, Enum):
@@ -175,55 +174,21 @@ class BatchIndexer:
 
             # Use graph builder to create paper and entities
             relationships = []
-            self.graph_builder.add_paper_to_graph(paper_node, entities, relationships)
+            await self.graph_builder.add_paper_to_graph(paper_node, entities, relationships)
 
-            # 6. Index in vector store
-            paper_status["status"] = ProcessingStatus.INDEXING_VECTORS
+            ingest_payload = {
+                "arxiv_id": arxiv_id,
+                "title": paper_metadata['title'],
+                "abstract": paper_metadata['abstract'],
+                "authors": paper_metadata['authors'],
+                "published_date": paper_metadata['published_date'],
+                "categories": paper_metadata['categories'],
+            }
+            await hydradb_store.store_paper(ingest_payload)
 
-            # Add paper abstract to vector store
-            documents = [
-                {
-                    "id": f"paper_{arxiv_id}",
-                    "text": f"{paper_metadata['title']}. {paper_metadata['abstract']}",
-                    "metadata": {
-                        "arxiv_id": arxiv_id,
-                        "type": "paper",
-                        "title": paper_metadata["title"],
-                        "authors": ",".join(paper_metadata["authors"][:3]),
-                        "published_date": paper_metadata["published_date"],
-                        "categories": ",".join(paper_metadata["categories"]),
-                    },
-                }
-            ]
-
-            # Add high-confidence entities to vector store
-            for entity in entities:
-                if entity.confidence > 0.7:
-                    entity_type = (
-                        entity.type.value
-                        if hasattr(entity.type, "value")
-                        else str(entity.type)
-                    )
-                    documents.append(
-                        {
-                            "id": f"entity_{arxiv_id}_{entity.name}",
-                            "text": f"{entity.name}: {entity.description}",
-                            "metadata": {
-                                "arxiv_id": arxiv_id,
-                                "type": "entity",
-                                "entity_type": entity_type,
-                                "entity_name": entity.name,
-                            },
-                        }
-                    )
-
-            # Add to Pinecone
-            await pinecone_store.add_documents(documents)
-
-            # Mark as completed
             paper_status["status"] = ProcessingStatus.COMPLETED
             paper_status["entities_count"] = len(entities)
-            paper_status["indexed_vectors"] = len(documents)
+            paper_status["indexed_vectors"] = 1
 
             self.logger.info("Paper indexed successfully", arxiv_id=arxiv_id)
 

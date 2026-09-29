@@ -4,8 +4,8 @@ import structlog
 from fastapi import APIRouter, HTTPException, Query
 
 from app.core.logging import get_logger
+from app.database.hydradb_store import hydradb_store
 from app.models.schemas import SearchRequest, SearchResponse
-from app.services.pinecone_store import pinecone_store
 
 router = APIRouter()
 logger = get_logger("search")
@@ -15,27 +15,21 @@ logger = get_logger("search")
 async def semantic_search(request: SearchRequest):
     """Perform semantic search across papers and entities"""
     try:
-        # Build filter if entity_type is specified
-        filter_dict = None
-        if request.entity_type:
-            filter_dict = {"entity_type": request.entity_type}
+        papers = await hydradb_store.list_papers(search=request.query, limit=request.limit)
 
-        # Perform semantic search using Pinecone (with auto-embedding)
-        results = await pinecone_store.search(
-            query_text=request.query,
-            top_k=request.limit,
-            filter=filter_dict,
-        )
-
-        # Format results
         formatted_results = []
-        for result in results:
+        for paper in papers:
             formatted_results.append(
                 {
-                    "id": result.get("id", ""),
-                    "text": result.get("text", ""),
-                    "metadata": result.get("metadata", {}),
-                    "score": result.get("score", 0.0),
+                    "id": paper.get("id", "") or paper.get("arxiv_id", ""),
+                    "text": paper.get("abstract", ""),
+                    "metadata": {
+                        "arxiv_id": paper.get("arxiv_id", ""),
+                        "title": paper.get("title", ""),
+                        "authors": paper.get("authors", []),
+                        "entity_type": request.entity_type,
+                    },
+                    "score": paper.get("score", 0.5),
                 }
             )
 
@@ -56,8 +50,7 @@ async def search_papers(
 ):
     """Search for papers by title, abstract, or content"""
     try:
-        # TODO: Implement paper-specific search
-        results = []
+        results = await hydradb_store.list_papers(search=query, skip=skip, limit=limit)
 
         return {
             "query": query,

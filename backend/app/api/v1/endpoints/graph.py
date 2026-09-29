@@ -8,10 +8,60 @@ from app.core.cache import cached
 from app.core.logging import get_logger, log_graph_operation
 from app.database.mock_store import mock_store
 from app.database import get_paper_entities, get_graph_statistics, HELIXDB_CONNECTED, helix_store
+from app.database.hydradb_store import hydradb_store
 from app.models.schemas import GraphQueryRequest, GraphResponse
 
 router = APIRouter()
 logger = get_logger("graph")
+
+
+async def get_entity_subgraph(
+    entity_name: str, depth: int = 1
+) -> tuple:
+    """Build a nodes/edges subgraph for an entity by matching papers whose
+    text mentions it (HydraDB has no graph traversals; search stands in)."""
+    nodes_by_id: dict = {}
+    edges: List[dict] = []
+
+    matching = await hydradb_store.list_papers(search=entity_name, limit=25)
+    for _ in range(max(1, min(depth, 2)) - 1):
+        if not matching:
+            break
+        # Expand one hop via shared entities.
+        related = await hydradb_store.get_related_papers(matching[0].get("arxiv_id", ""), limit=25)
+        for rel in related:
+            if rel not in matching:
+                matching.append(rel)
+
+    for rank, paper in enumerate(matching):
+        pid = paper.get("arxiv_id", "")
+        if not pid or pid in nodes_by_id:
+            continue
+        nodes_by_id[pid] = {
+            "id": pid,
+            "label": (paper.get("title") or pid)[:60],
+            "type": "Paper",
+            "properties": {"title": paper.get("title", ""), "rank": rank},
+        }
+        edges.append(
+            {
+                "source": entity_name,
+                "target": pid,
+                "type": "MENTIONS",
+                "properties": {},
+            }
+        )
+
+    nodes_by_id.setdefault(
+        entity_name,
+        {
+            "id": entity_name,
+            "label": entity_name,
+            "type": "Entity",
+            "properties": {},
+        },
+    )
+    return list(nodes_by_id.values()), edges
 
 
 @router.post("/query", response_model=GraphResponse)
@@ -28,9 +78,8 @@ async def query_graph(request: GraphQueryRequest):
         )
 
         if request.entity_name:
-            # Use real Neo4j query
             try:
-                nodes, edges = get_entity_subgraph(request.entity_name, request.depth)
+                nodes, edges = await get_entity_subgraph(request.entity_name, request.depth)
 
                 # Format nodes for response
                 formatted_nodes = []

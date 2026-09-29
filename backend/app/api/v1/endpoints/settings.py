@@ -59,17 +59,9 @@ async def _service_status() -> Dict[str, Any]:
     llm_key = user_config.get_key("OPENAI_API_KEY")
     llm_ready = bool(llm_key) and not llm_key.startswith("sk-placeholder")
 
-    pinecone_ready = False
-    try:
-        from app.services.pinecone_store import pinecone_store
-
-        pinecone_ready = bool(pinecone_store.is_connected)
-    except Exception:  # noqa: BLE001
-        pinecone_ready = False
-
     neo4j_ready = False
     try:
-        from app.database import HELIXDB_CONNECTED as NEO4J_CONNECTED
+        from app.database import HYDRADB_CONNECTED as NEO4J_CONNECTED
 
         neo4j_ready = bool(NEO4J_CONNECTED)
     except Exception:  # noqa: BLE001
@@ -82,16 +74,10 @@ async def _service_status() -> Dict[str, Any]:
             "label": "Chat model",
             "unlocks": "Chat. Without a key the chat cannot answer.",
         },
-        "pinecone": {
-            "configured": pinecone_ready,
-            "required": False,
-            "label": "Pinecone",
-            "unlocks": "Semantic search. Without it, paper search falls back to keywords.",
-        },
         "neo4j": {
             "configured": neo4j_ready,
             "required": False,
-            "label": "Neo4j",
-            "unlocks": "Knowledge graph + paper library. Without it, the graph is empty.",
+            "label": "HydraDB",
+            "unlocks": "Semantic search + knowledge graph. Without it, paper search falls back to keywords.",
         },
     }

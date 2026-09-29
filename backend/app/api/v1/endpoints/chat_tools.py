@@ -13,15 +13,9 @@ from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
 from app.core.logging import get_logger
-from app.database import (
-    HELIXDB_CONNECTED,
-    store_entities,
-    store_paper,
-    store_relationships,
-)
+from app.database.hydradb_store import hydradb_store
 from app.database.mock_store import mock_store
 from app.services.arxiv_client import arxiv_client
-from app.services.pinecone_store import pinecone_store
 
 router = APIRouter()
 logger = get_logger("chat_tools")
@@ -36,45 +30,36 @@ class IndexRequest(BaseModel):
     id_or_url: str = Field(..., description="arXiv id or any arXiv URL")
 
 
-def _keyword_fallback(query: str, limit: int) -> List[Dict[str, Any]]:
-    """Keyword-rank papers when vector search returns nothing."""
-    if not HELIXDB_CONNECTED:
-        return []
+async def _keyword_fallback(query: str, limit: int) -> List[Dict[str, Any]]:
+    """Keyword-rank papers when semantic search returns nothing."""
     try:
-        import asyncio
-        from app.database.helix_store import helix_store
-        papers = asyncio.run(helix_store.list_papers(limit=limit, search=query))
-        return papers
+        papers = await hydradb_store.list_papers(limit=200)
     except Exception as e:
         logger.warning("Keyword fallback failed", error=str(e))
         return []
+    terms = query.lower().split()
+    scored = []
+    for p in papers:
+        hay = f"{p.get('title', '')} {p.get('abstract', '')}".lower()
+        score = sum(1 for t in terms if t in hay)
+        if score:
+            p = dict(p, score=round(score / max(len(terms), 1), 4))
+            scored.append(p)
+    scored.sort(key=lambda p: p["score"], reverse=True)
+    return scored[:limit]
 
 
 @router.post("/search-papers")
 async def search_papers(request: SearchRequest) -> Dict[str, Any]:
-    """Semantic search over indexed papers (vector, with fallback)."""
+    """Semantic search over indexed papers (HydraDB, with keyword fallback)."""
     papers: List[Dict[str, Any]] = []
     try:
-        hits = await pinecone_store.search(
-            query_text=request.query, top_k=request.limit
-        )
-        for h in hits:
-            md = h.get("metadata", {}) or {}
-            papers.append(
-                {
-                    "arxiv_id": md.get("arxiv_id") or h.get("id", ""),
-                    "title": md.get("title", ""),
-                    "abstract": (md.get("abstract") or "")[:1200],
-                    "authors": md.get("authors", ""),
-                    "score": round(float(h.get("score") or 0), 4),
-                }
-            )
+        papers = await hydradb_store.list_papers(search=request.query, limit=request.limit)
     except Exception as e:  # noqa: BLE001
-        logger.warning("Vector search failed", error=str(e))
+        logger.warning("HydraDB search failed", error=str(e))
 
     if not papers:
-        if HELIXDB_CONNECTED:
-            papers = _keyword_fallback(request.query, request.limit)
+        papers = await _keyword_fallback(request.query, request.limit)
 
     if not papers:
         try:
@@ -104,7 +89,7 @@ async def search_papers(request: SearchRequest) -> Dict[str, Any]:
 
 @router.post("/index-arxiv")
 async def index_arxiv(request: IndexRequest) -> Dict[str, Any]:
-    """Index a single arXiv paper by id or URL: Neo4j + Pinecone + entities."""
+    """Index a single arXiv paper by id or URL into HydraDB + entities."""
     token = request.id_or_url.strip()
     m = re.search(r"(\d{4}\.\d{4,5}(v\d+)?)", token)
     arxiv_id = m.group(1) if m else token.rstrip("/").split("/")[-1]
@@ -117,7 +102,7 @@ async def index_arxiv(request: IndexRequest) -> Dict[str, Any]:
     title = (paper.get("title") or "").strip()
     abstract = (paper.get("abstract") or "").strip()
 
-    store_paper(
+    await hydradb_store.store_paper(
         {
             "arxiv_id": aid,
             "title": title,
@@ -130,21 +115,13 @@ async def index_arxiv(request: IndexRequest) -> Dict[str, Any]:
         }
     )
 
-    if pinecone_store.is_connected:
-        await pinecone_store.add_documents(
-            [
-                {
-                    "id": f"paper_{aid}",
-                    "text": f"{title}. {abstract}",
-                    "metadata": {
-                        "arxiv_id": aid,
-                        "title": title,
-                        "abstract": abstract,
-                        "authors": paper.get("authors", []),
-                    },
-                }
-            ]
-        )
+    indexed = False
+    indexing_status = "not_tracked"
+    source_ids = list(hydradb_store.last_source_ids)
+    if source_ids:
+        status = await hydradb_store.wait_until_indexed(source_ids[0], timeout=90)
+        indexing_status = status.get("indexing_status", "timeout")
+        indexed = indexing_status == "completed"
 
     n_entities = 0
     try:
@@ -152,14 +129,14 @@ async def index_arxiv(request: IndexRequest) -> Dict[str, Any]:
 
         ex = EntityExtractor()
         ents, rels = await ex.extract_entities_and_relationships(f"{title}. {abstract}")
-        store_entities(
+        await hydradb_store.store_entities(
             aid,
             [
                 {"name": e.name, "type": e.type.value, "confidence": e.confidence}
                 for e in ents
             ],
         )
-        store_relationships(
+        await hydradb_store.store_relationships(
             aid,
             [
                 {
@@ -175,11 +152,13 @@ async def index_arxiv(request: IndexRequest) -> Dict[str, Any]:
     except Exception as e:  # noqa: BLE001
         logger.warning("Entity extraction skipped", error=str(e))
 
-    logger.info("chat index-arxiv", arxiv_id=aid, entities=n_entities)
+    logger.info("chat index-arxiv", arxiv_id=aid, entities=n_entities, indexed=indexed)
     return {
         "ok": True,
         "arxiv_id": aid,
         "title": title,
         "authors": paper.get("authors", [])[:5],
         "entities_extracted": n_entities,
+        "indexed": indexed,
+        "indexing_status": indexing_status,
     }

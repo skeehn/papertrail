@@ -16,7 +16,6 @@ from app.core.cache import init_cache
 from app.core.config import settings
 from app.core.logging import get_logger, setup_logging
 from app.database import init_database
-from app.services.pinecone_store import pinecone_store
 from app.websocket.websocket_manager import websocket_endpoint
 
 # Initialize logger
@@ -33,11 +32,7 @@ async def lifespan(app: FastAPI):
     # Initialize cache
     await init_cache()
 
-    # Initialize database (Neo4j with mock fallback)
     await init_database()
-
-    # Initialize Pinecone vector store
-    await pinecone_store.connect()
 
     logger.info("PaperTrail API startup complete")
 
@@ -104,27 +99,21 @@ async def root():
 @app.get("/health/detailed")
 async def detailed_health():
     """Detailed health check including service status"""
-    from app.database import NEO4J_CONNECTED
+    from app.database import HYDRADB_CONNECTED
 
     health_status = {
         "status": "healthy",
         "version": settings.VERSION,
         "environment": settings.ENVIRONMENT,
         "services": {
-            "neo4j": "connected" if NEO4J_CONNECTED else "disconnected",
-            "pinecone": (
-                "connected" if pinecone_store.is_connected else "disconnected"
-            ),
+            "hydradb": "connected" if HYDRADB_CONNECTED else "disconnected",
             "redis": "connected",  # Simplified - would need actual check
         },
         "timestamp": datetime.utcnow().isoformat(),
     }
 
-    # Check if any critical services are down
-    critical_services = ["neo4j"]
-    for service in critical_services:
-        if health_status["services"][service] != "connected":
-            health_status["status"] = "degraded"
+    if health_status["services"]["hydradb"] != "connected":
+        health_status["status"] = "degraded"
 
     return health_status
 

@@ -23,6 +23,7 @@ class HydraDBStore:
         self._collection: str = user_config.get_key("HYDRADB_COLLECTION", "papers")
         self._session: Optional[aiohttp.ClientSession] = None
         self._connected = False
+        self.last_source_ids: List[str] = []
 
     def _headers(self) -> Dict[str, str]:
         return {
@@ -70,12 +71,26 @@ class HydraDBStore:
     def is_connected(self) -> bool:
         return self._connected
 
+    async def _get_session(self) -> aiohttp.ClientSession:
+        """Session bound to the CURRENT event loop.
+
+        aiohttp sessions are loop-bound. Sync wraappers spin fresh loops per
+        call via asyncio.run, so a stale session from an earlier loop raises
+        'Event loop is closed'. Recreate whenever the loop differs.
+        """
+        loop = asyncio.get_running_loop()
+        if self._session and not self._session.closed:
+            if getattr(self._session, "bound_loop", None) is loop:
+                return self._session
+        self._session = aiohttp.ClientSession()
+        self._session.bound_loop = loop
+        return self._session
+
     async def _post(self, endpoint: str, payload: Dict[str, Any]) -> Dict[str, Any]:
         """Make a POST request to HydraDB API"""
-        if not self._session or self._session.closed:
-            self._session = aiohttp.ClientSession()
+        session = await self._get_session()
 
-        async with self._session.post(
+        async with session.post(
             f"{HYDRADB_API_URL}{endpoint}",
             headers=self._headers(),
             json=payload,
@@ -85,10 +100,9 @@ class HydraDBStore:
 
     async def _get(self, endpoint: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Make a GET request to HydraDB API"""
-        if not self._session or self._session.closed:
-            self._session = aiohttp.ClientSession()
+        session = await self._get_session()
 
-        async with self._session.get(
+        async with session.get(
             f"{HYDRADB_API_URL}{endpoint}",
             headers=self._headers(),
             params=params or {},
@@ -102,10 +116,12 @@ class HydraDBStore:
         if not paper_id:
             raise ValueError("paper_data must contain either 'arxiv_id' or 'id'")
 
+        title = paper_data.get("title", "")
+
         # Build text content from paper fields
         text_parts = []
-        if paper_data.get("title"):
-            text_parts.append(f"Title: {paper_data['title']}")
+        if title:
+            text_parts.append(f"Title: {title}")
         if paper_data.get("authors"):
             authors = paper_data["authors"]
             if isinstance(authors, list):
@@ -117,16 +133,28 @@ class HydraDBStore:
 
         text_content = "\n".join(text_parts) if text_parts else str(paper_data)
 
-        # Ingest into HydraDB
+        year = None
+        raw_date = str(
+            paper_data.get("publication_date") or paper_data.get("published_date") or ""
+        )
+        for candidate in raw_date.replace("/", "-").split("-"):
+            if candidate.isdigit() and len(candidate) == 4:
+                year = candidate
+                break
+
+        # Ingest into HydraDB. Metadata rides on `attributes` — `metadata`
+        # was rejected by the API as an unknown field.
         payload = {
             "database": self._database,
             "collection": self._collection,
             "context": [
                 {
+                    "title": title or paper_id,
                     "text": text_content,
-                    "metadata": {
+                    "attributes": {
                         "arxiv_id": paper_id,
-                        "title": paper_data.get("title", ""),
+                        "title": title,
+                        "year": year,
                         "source": "arxiv",
                         "paper_id": paper_id,
                     },
@@ -135,8 +163,54 @@ class HydraDBStore:
         }
 
         result = await self._post("/context/ingest", payload)
-        logger.info("Paper stored in HydraDB", arxiv_id=paper_id)
+        if not result.get("success"):
+            raise RuntimeError(f"HydraDB ingest failed: {result.get('error') or result}")
+        self.last_source_ids = [
+            item.get("id", "")
+            for item in (result.get("data", {}).get("results") or [])
+            if item.get("id")
+        ]
+        logger.info(
+            "Paper stored in HydraDB", arxiv_id=paper_id, source_ids=self.last_source_ids
+        )
         return paper_id
+
+    async def wait_until_indexed(
+        self, source_id: str, collection: Optional[str] = None, timeout: int = 120, poll: int = 3
+    ) -> Dict[str, Any]:
+        """Poll /context/status until the source reaches a terminal state.
+
+        The status endpoint requires database + collection; omitting the
+        collection returns a misleading FILE_NOT_FOUND error.
+        """
+        deadline = asyncio.get_running_loop().time() + timeout
+        last: Dict[str, Any] = {}
+        while asyncio.get_running_loop().time() < deadline:
+            result = await self._get(
+                "/context/status",
+                params={
+                    "database": self._database,
+                    "collection": collection or self._collection,
+                    "id": source_id,
+                },
+            )
+            statuses = (result.get("data", {}) or {}).get("statuses") or []
+            if statuses:
+                last = statuses[0]
+                state = last.get("indexing_status", "")
+                if state in ("completed", "errored", "failed"):
+                    return last
+            await asyncio.sleep(poll)
+        return dict(last, indexing_status="timeout", success=False)
+
+    async def list_sources(self, limit: int = 500) -> List[Dict[str, Any]]:
+        """Raw source items with attributes, for Python-side aggregation."""
+        result = await self._post(
+            "/context/list", {"database": self._database, "collection": self._collection}
+        )
+        data = result.get("data") or (result.get("data") or {}).get("data") or {}
+        sources = result.get("data", {}).get("sources") or []
+        return sources[:limit]
 
     async def get_paper_by_id(self, paper_id: str) -> Optional[Dict[str, Any]]:
         """Get a paper by its ID using vector search"""
@@ -184,8 +258,9 @@ class HydraDBStore:
         for entity in entities:
             text = f"Entity: {entity.get('name', '')}, Type: {entity.get('type', 'ENTITY')}, Description: {entity.get('description', '')}"
             context_items.append({
+                "title": entity.get("name", ""),
                 "text": text,
-                "metadata": {
+                "attributes": {
                     "paper_id": paper_id,
                     "entity_name": entity.get("name", ""),
                     "entity_type": entity.get("type", "ENTITY"),
@@ -194,11 +269,13 @@ class HydraDBStore:
             })
 
         if context_items:
-            await self._post("/context/ingest", {
+            result = await self._post("/context/ingest", {
                 "database": self._database,
                 "collection": self._collection,
                 "context": context_items,
             })
+            if not result.get("success"):
+                raise RuntimeError(f"HydraDB entity ingest failed: {result.get('error') or result}")
             logger.debug("Stored entities in HydraDB", paper_id=paper_id, count=len(entities))
 
     async def get_paper_entities(self, paper_id: str) -> List[Dict[str, Any]]:
@@ -219,8 +296,9 @@ class HydraDBStore:
         for rel in relationships:
             text = f"Relationship: {rel.get('type', 'RELATES_TO')}, Target: {rel.get('target_paper_id', '')}"
             context_items.append({
+                "title": text[:80],
                 "text": text,
-                "metadata": {
+                "attributes": {
                     "paper_id": paper_id,
                     "relationship_type": rel.get("type", "RELATES_TO"),
                     "target_paper_id": rel.get("target_paper_id", ""),
@@ -229,11 +307,13 @@ class HydraDBStore:
             })
 
         if context_items:
-            await self._post("/context/ingest", {
+            result = await self._post("/context/ingest", {
                 "database": self._database,
                 "collection": self._collection,
                 "context": context_items,
             })
+            if not result.get("success"):
+                raise RuntimeError(f"HydraDB relationship ingest failed: {result.get('error') or result}")
             logger.debug("Stored relationships in HydraDB", paper_id=paper_id, count=len(relationships))
 
     async def get_related_papers(self, paper_id: str, limit: int = 10) -> List[Dict[str, Any]]:
@@ -302,45 +382,54 @@ class HydraDBStore:
         if not result.get("success"):
             return papers
 
-        data = result.get("data", {})
-        sources = data.get("sources", [])
+        data = result.get("data") or {}
+        sources = data.get("sources") or []
 
         for source in sources:
-            metadata = source.get("metadata", {})
-            papers.append({
-                "id": metadata.get("arxiv_id", metadata.get("paper_id", "")),
-                "arxiv_id": metadata.get("arxiv_id", metadata.get("paper_id", "")),
-                "title": metadata.get("title", source.get("title", "")),
-                "authors": metadata.get("authors", []),
-                "abstract": source.get("text", "")[:500],
-                "created_at": metadata.get("created_at", ""),
-                "updated_at": metadata.get("updated_at", ""),
-                "status": "processed",
-            })
+            attrs = source.get("attributes") or {}
+            papers.append(
+                {
+                    "id": attrs.get("arxiv_id", attrs.get("paper_id", "")),
+                    "arxiv_id": attrs.get("arxiv_id", attrs.get("paper_id", "")),
+                    "title": attrs.get("title") or source.get("title", ""),
+                    "authors": attrs.get("authors", []),
+                    "abstract": (source.get("text") or source.get("text_preview", ""))[:500],
+                    "created_at": attrs.get("created_at", ""),
+                    "updated_at": attrs.get("updated_at", ""),
+                    "score": source.get("score", 0.5),
+                    "status": "processed",
+                }
+            )
 
         return papers
 
     def _parse_list_results(
         self, result: Dict[str, Any], skip: int = 0, limit: int = 20
     ) -> List[Dict[str, Any]]:
-        """Parse HydraDB list response into paper format"""
+        """Parse HydraDB list response into paper format.
+
+        /context/list returns data.sources[].{id, title, text, attributes}.
+        """
         papers = []
         if not result.get("success"):
             return papers
 
-        contexts = result.get("data", {}).get("contexts", [])
+        data = result.get("data") or {}
+        contexts = data.get("sources") or data.get("contexts") or []
         for ctx in contexts[skip : skip + limit]:
-            metadata = ctx.get("metadata", {})
-            papers.append({
-                "id": metadata.get("arxiv_id", metadata.get("paper_id", "")),
-                "arxiv_id": metadata.get("arxiv_id", metadata.get("paper_id", "")),
-                "title": metadata.get("title", ""),
-                "authors": metadata.get("authors", []),
-                "abstract": ctx.get("text", "")[:500],
-                "created_at": metadata.get("created_at", ""),
-                "updated_at": metadata.get("updated_at", ""),
-                "status": "processed",
-            })
+            attrs = ctx.get("attributes") or {}
+            papers.append(
+                {
+                    "id": attrs.get("arxiv_id", attrs.get("paper_id", "")),
+                    "arxiv_id": attrs.get("arxiv_id", attrs.get("paper_id", "")),
+                    "title": attrs.get("title") or ctx.get("title", ""),
+                    "authors": attrs.get("authors", []),
+                    "abstract": (ctx.get("text") or "")[:500],
+                    "created_at": attrs.get("created_at", ""),
+                    "updated_at": attrs.get("updated_at", ""),
+                    "status": "processed",
+                }
+            )
 
         return papers
 

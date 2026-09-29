@@ -5,9 +5,8 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
-from app.core.config import settings
 from app.core.logging import get_logger
-from app.database import helix_store
+from app.database.hydradb_store import hydradb_store
 
 logger = get_logger("trend_analyzer")
 
@@ -17,7 +16,46 @@ class TrendAnalyzer:
 
     def __init__(self):
         self.logger = logger
-        self.neo4j_client = helix_store
+
+    async def _aggregate(self) -> Dict[str, Any]:
+        """Fetch sources once and build paper/entity maps for aggregation.
+
+        papers: paper_id -> {title, year}
+        entity_mentions: entity_name -> list of (paper_id, year)
+        """
+        try:
+            sources = await hydradb_store.list_sources(limit=1000)
+        except Exception as e:
+            self.logger.warning("Source listing failed", error=str(e))
+            sources = []
+
+        papers: Dict[str, Dict[str, Any]] = {}
+        entity_mentions: Dict[str, List[Tuple[str, Optional[str]]]] = defaultdict(list)
+        current_year = str(datetime.now().year)
+
+        for source in sources:
+            attrs = source.get("attributes") or {}
+            kind = attrs.get("source", "arxiv")
+            if kind == "entity":
+                name = attrs.get("entity_name", "")
+                pid = attrs.get("paper_id", "")
+                if name:
+                    entity_mentions[name].append((pid, None))
+            else:
+                pid = attrs.get("arxiv_id") or attrs.get("paper_id")
+                if not pid:
+                    continue
+                papers[pid] = {
+                    "title": attrs.get("title") or source.get("title", ""),
+                    "year": attrs.get("year") or current_year,
+                }
+
+        resolved: Dict[str, List[Tuple[str, str]]] = {}
+        for name, mentions in entity_mentions.items():
+            resolved[name] = [
+                (pid, papers.get(pid, {}).get("year", current_year)) for pid, _ in mentions
+            ]
+        return {"papers": papers, "entity_mentions": resolved}
 
     async def analyze_entity_trends(
         self,
@@ -48,25 +86,23 @@ class TrendAnalyzer:
     async def _analyze_single_entity(
         self, entity_name: str, time_window_years: int
     ) -> Dict[str, Any]:
-        """Analyze trends for a specific entity"""
+        """Yearly paper-mention counts for one entity, from HydraDB sources."""
 
-        query = """
-        MATCH (p:Paper)-[:MENTIONS]->(e:Entity {name: $entityName})
-        WHERE p.published_date IS NOT NULL
-        WITH p, e,
-             datetime(p.published_date) as pubDate,
-             date.truncate('year', datetime(p.published_date)) as year
-        WHERE pubDate > datetime() - duration({years: $timeWindow})
-        WITH year, count(p) as mentionCount, collect(p.title)[..5] as examplePapers
-        RETURN toString(year.year) as year, mentionCount, examplePapers
-        ORDER BY year ASC
-        """
+        agg = await self._aggregate()
+        mentions = agg["entity_mentions"].get(entity_name, [])
+        this_year = int(datetime.now().year)
+        cutoff = this_year - max(1, time_window_years) + 1
 
-        results = await helix_store.list_papers(
-            query, {"entityName": entity_name, "timeWindow": time_window_years}
-        )
+        per_year: Dict[str, List[str]] = defaultdict(list)
+        for pid, year in mentions:
+            if not pid:
+                continue
+            y = int(year) if (year or "").isdigit() else this_year
+            if y < cutoff:
+                continue
+            per_year[str(y)].append(pid)
 
-        if not results:
+        if not per_year:
             return {
                 "entity": entity_name,
                 "trend": "no_data",
@@ -75,84 +111,76 @@ class TrendAnalyzer:
                 "status": "No data available",
             }
 
-        # Calculate growth metrics
-        yearly_data = [(r["year"], r["mentionCount"]) for r in results]
-        growth_rate = self._calculate_growth_rate(yearly_data)
-        trend_direction = self._determine_trend(yearly_data)
+        sorted_years = sorted(per_year)
+        example_papers = contextually = [
+            agg["papers"].get(pid, {}).get("title", pid)
+            for pid in per_year[sorted_years[-1]]
+        ]
+        yearly = [(y, len(per_year[y])) for y in sorted_years]
+        growth_rate = self._calculate_growth_rate(yearly)
+        trend_direction = self._determine_trend(yearly)
 
         return {
             "entity": entity_name,
             "trend": trend_direction,
             "yearly_counts": [
                 {
-                    "year": r["year"],
-                    "count": r["mentionCount"],
-                    "example_papers": r.get("examplePapers", [])[:3],
+                    "year": y,
+                    "count": count,
+                    "example_papers": example_papers[:3],
                 }
-                for r in results
+                for y, count in yearly
             ],
             "growth_rate": growth_rate,
-            "total_mentions": sum(r["mentionCount"] for r in results),
-            "time_span": f"{results[0]['year']} - {results[-1]['year']}",
+            "total_mentions": sum(count for _, count in yearly),
+            "time_span": f"{sorted_years[0]} - {sorted_years[-1]}",
         }
 
     async def _analyze_all_entities(
         self, time_window_years: int, min_mentions: int
     ) -> Dict[str, Any]:
-        """Analyze trends for all entities"""
+        """Entity trends aggregated in-memory from HydraDB sources."""
 
-        query = """
-        MATCH (p:Paper)-[:MENTIONS]->(e:Entity)
-        WHERE p.published_date IS NOT NULL
-        WITH e, p,
-             datetime(p.published_date) as pubDate,
-             date.truncate('year', datetime(p.published_date)) as year
-        WHERE pubDate > datetime() - duration({years: $timeWindow})
-        WITH e, year, count(p) as yearCount
-        WITH e,
-             collect({year: toString(year.year), count: yearCount}) as yearlyData,
-             sum(yearCount) as totalMentions
-        WHERE totalMentions >= $minMentions
-        RETURN e.name as entity,
-               e.type as entityType,
-               yearlyData,
-               totalMentions
-        ORDER BY totalMentions DESC
-        LIMIT 50
-        """
-
-        results = await helix_store.list_papers(
-            query, {"timeWindow": time_window_years, "minMentions": min_mentions}
-        )
+        agg = await self._aggregate()
+        this_year = int(datetime.now().year)
+        cutoff = this_year - max(1, time_window_years) + 1
 
         trends = []
-        for record in results:
-            yearly_data = [(d["year"], d["count"]) for d in record["yearlyData"]]
-            growth_rate = self._calculate_growth_rate(yearly_data)
-            trend_direction = self._determine_trend(yearly_data)
+        for entity_name, mentions in agg["entity_mentions"].items():
+            per_year: Dict[str, int] = defaultdict(int)
+            for pid, year in mentions:
+                if not pid:
+                    continue
+                y = int(year) if (year or "").isdigit() else this_year
+                if y >= cutoff:
+                    per_year[str(y)] += 1
+            if sum(per_year.values()) < min_mentions:
+                continue
 
+            sorted_years = sorted(per_year)
+            yearly_data = [(y, per_year[y]) for y in sorted_years]
             trends.append(
                 {
-                    "entity": record["entity"],
-                    "type": record["entityType"],
-                    "trend": trend_direction,
-                    "growth_rate": growth_rate,
-                    "total_mentions": record["totalMentions"],
-                    "yearly_data": record["yearlyData"],
+                    "entity": entity_name,
+                    "type": "entity",
+                    "trend": self._determine_trend(yearly_data),
+                    "growth_rate": self._calculate_growth_rate(yearly_data),
+                    "total_mentions": sum(count for _, count in yearly_data),
+                    "yearly_data": [
+                        {"year": y, "count": per_year[y]} for y in sorted_years
+                    ],
                 }
             )
 
-        # Categorize trends
         rising = [t for t in trends if t["trend"] == "rising"]
         declining = [t for t in trends if t["trend"] == "declining"]
-        stable = [t for t in trends if t["trend"] == "stable"]
 
         return {
             "summary": {
                 "total_entities": len(trends),
                 "rising": len(rising),
                 "declining": len(declining),
-                "stable": len(stable),
+                "stable": sum(1 for t in trends if t["trend"] == "stable"),
             },
             "top_rising": sorted(rising, key=lambda x: x["growth_rate"], reverse=True)[
                 :10
@@ -171,7 +199,6 @@ class TrendAnalyzer:
 
         counts = [count for _, count in yearly_data]
 
-        # Calculate year-over-year changes
         yoy_changes = []
         for i in range(1, len(counts)):
             if counts[i - 1] > 0:
@@ -188,7 +215,6 @@ class TrendAnalyzer:
 
         counts = [count for _, count in yearly_data]
 
-        # Simple linear regression
         n = len(counts)
         x = list(range(n))
         x_mean = statistics.mean(x)
@@ -202,8 +228,7 @@ class TrendAnalyzer:
 
         slope = numerator / denominator
 
-        # Classify based on slope
-        if slope > y_mean * 0.1:  # More than 10% of mean
+        if slope > y_mean * 0.1:
             return "rising"
         elif slope < -y_mean * 0.1:
             return "declining"
@@ -213,58 +238,37 @@ class TrendAnalyzer:
     async def detect_emerging_topics(
         self, lookback_months: int = 12, min_growth_rate: float = 50.0
     ) -> List[Dict[str, Any]]:
-        """
-        Detect emerging research topics
+        """Detect topics whose recent mentions outpace their historical ones."""
 
-        Args:
-            lookback_months: Months to look back for comparison
-            min_growth_rate: Minimum growth rate to consider emerging
-
-        Returns:
-            List of emerging topics
-        """
-
-        query = """
-        MATCH (p:Paper)-[:MENTIONS]->(e:Entity)
-        WHERE p.published_date IS NOT NULL
-        WITH e,
-             datetime(p.published_date) as pubDate,
-             datetime() - duration({months: $lookback}) as cutoffDate
-        WITH e,
-             sum(CASE WHEN pubDate > cutoffDate THEN 1 ELSE 0 END) as recentCount,
-             sum(CASE WHEN pubDate <= cutoffDate THEN 1 ELSE 0 END) as olderCount
-        WHERE recentCount > 0 AND olderCount > 0
-        WITH e, recentCount, olderCount,
-             ((toFloat(recentCount) - olderCount) / olderCount * 100) as growthRate
-        WHERE growthRate >= $minGrowth
-        RETURN e.name as entity,
-               e.type as entityType,
-               recentCount,
-               olderCount,
-               growthRate
-        ORDER BY growthRate DESC
-        LIMIT 20
-        """
-
-        results = await helix_store.list_papers(
-            query, {"lookback": lookback_months, "minGrowth": min_growth_rate}
-        )
+        agg = await self._aggregate()
+        this_year = int(datetime.now().year)
+        cutoff_year = this_year - max(1, lookback_months // 12)
 
         emerging = []
-        for record in results:
+        for entity_name, mentions in agg["entity_mentions"].items():
+            recent = sum(1 for pid, year in mentions if (year or "0").isdigit() and int(year) > cutoff_year)
+            older = len(mentions) - recent
+            if recent == 0 or older == 0 or older == 0:
+                continue
+            growth = (recent - older) / older * 100
+            if growth < min_growth_rate:
+                continue
             emerging.append(
                 {
-                    "entity": record["entity"],
-                    "type": record["entityType"],
-                    "recent_mentions": record["recentCount"],
-                    "historical_mentions": record["olderCount"],
-                    "growth_rate": round(record["growthRate"], 2),
+                    "entity": entity_name,
+                    "type": "entity",
+                    "recent_mentions": recent,
+                    "historical_mentions": older,
+                    "growth_rate": round(growth, 2),
                     "status": "emerging",
                 }
             )
 
+        emerging.sort(key=lambda e: e["growth_rate"], reverse=True)
         self.logger.info(f"Found {len(emerging)} emerging topics")
-        return emerging
+        return emerging[:20]
+
+
 
     async def compare_trends(
         self, entity_names: List[str], time_window_years: int = 5
@@ -324,47 +328,33 @@ class TrendAnalyzer:
     async def get_trending_now(
         self, recent_months: int = 6, top_n: int = 10
     ) -> List[Dict[str, Any]]:
-        """
-        Get currently trending entities
+        """Count entity mentions in the most recent papers."""
 
-        Args:
-            recent_months: Definition of "now"
-            top_n: Number of top trends to return
+        agg = await self._aggregate()
+        this_year = str(datetime.now().year)
+        recent_tag = str(this_year)
 
-        Returns:
-            List of trending entities
-        """
+        counts: List[Tuple[str, int, List[str]]] = []
+        for entity_name, mentions in agg["entity_mentions"].items():
+            recent_papers = [pid for pid, year in mentions if year == recent_tag]
+            if not recent_papers:
+                continue
+            examples = [
+                agg["papers"].get(pid, {}).get("title", pid) for pid in recent_papers[:3]
+            ]
+            counts.append((entity_name, len(recent_papers), examples))
 
-        query = """
-        MATCH (p:Paper)-[:MENTIONS]->(e:Entity)
-        WHERE p.published_date IS NOT NULL
-          AND datetime(p.published_date) > datetime() - duration({months: $recentMonths})
-        WITH e, count(p) as mentionCount, collect(p.title)[..3] as examplePapers
-        RETURN e.name as entity,
-               e.type as entityType,
-               mentionCount,
-               examplePapers
-        ORDER BY mentionCount DESC
-        LIMIT $topN
-        """
-
-        results = await helix_store.list_papers(
-            query, {"recentMonths": recent_months, "topN": top_n}
-        )
-
-        trending = []
-        for record in results:
-            trending.append(
-                {
-                    "entity": record["entity"],
-                    "type": record["entityType"],
-                    "recent_mentions": record["mentionCount"],
-                    "example_papers": record["examplePapers"],
-                    "status": "trending",
-                }
-            )
-
-        return trending
+        counts.sort(key=lambda t: t[1], reverse=True)
+        return [
+            {
+                "entity": entity,
+                "type": "entity",
+                "recent_mentions": count,
+                "example_papers": examples,
+                "status": "trending",
+            }
+            for entity, count, examples in counts[:top_n]
+        ]
 
 
 # Global trend analyzer instance

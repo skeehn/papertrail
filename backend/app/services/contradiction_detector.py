@@ -64,11 +64,17 @@ class ContradictionDetector:
         claim1_lower = claim1["text"].lower()
         claim2_lower = claim2["text"].lower()
 
+        def _norm(s: str) -> str:
+            return " ".join(s.split())
+
+        claim1_lower = _norm(claim1_lower)
+        claim2_lower = _norm(claim2_lower)
+
         # Check for direct contradictions
         for neg in negations:
             if neg in claim1_lower and neg not in claim2_lower:
                 # Potential contradiction if claims are similar
-                if claim1_lower.replace(neg, "").strip() == claim2_lower:
+                if _norm(claim1_lower.replace(neg, "")) == claim2_lower:
                     comparison["contradiction_score"] = 0.8
                     comparison["contradiction_type"] = "direct_negation"
                     comparison["details"].append(
@@ -76,7 +82,7 @@ class ContradictionDetector:
                     )
                     break
             elif neg in claim2_lower and neg not in claim1_lower:
-                if claim2_lower.replace(neg, "").strip() == claim1_lower:
+                if _norm(claim2_lower.replace(neg, "")) == claim1_lower:
                     comparison["contradiction_score"] = 0.8
                     comparison["contradiction_type"] = "direct_negation"
                     comparison["details"].append(
